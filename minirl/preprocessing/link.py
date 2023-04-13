@@ -1,5 +1,6 @@
 from .stats import Univariate
 
+
 class Link(Univariate):
     """A link joins two univariate statistics as a sequence.
     This can be used to pipe the output of one statistic to the input of another. This can be used,
