@@ -30,6 +30,7 @@ class Statistic(abc.ABC, Base):
     def __gt__(self, other):
         return self.get() > other.get()
 
+
 class Univariate(Statistic):
     """A univariate statistic measures a property of a variable."""
 
@@ -80,6 +81,7 @@ class AbsMax(Univariate):
     def get(self):
         return self.abs_max
 
+
 class Min(Univariate):
     """Running min.
     Attributes
@@ -98,7 +100,8 @@ class Min(Univariate):
 
     def get(self):
         return self.min
-    
+
+
 class Max(Univariate):
     """Running max.
     Attributes

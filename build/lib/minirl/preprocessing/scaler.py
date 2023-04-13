@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from .base import MiniBatchTransformer, Transformer
-from .stats import AbsMax
+from .stats import AbsMax, Max, Min
 
 
 def safe_div(a, b):
@@ -199,7 +199,7 @@ class MinMaxScaler(Transformer):
 
     def __init__(self):
         self.min = collections.defaultdict(Min)
-        self.max = collections.defaultdict(stats.Max)
+        self.max = collections.defaultdict(Max)
 
     def learn_one(self, x):
         for i, xi in x.items():

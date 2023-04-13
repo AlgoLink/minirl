@@ -11,7 +11,6 @@ class ACAgent:
         self.critic = TwoNN(state_dim, hidden_layers, 1)
         self.adam_ac = MyAdam(weights=self.actor.model, learning_rate=lr)
         self.adam_cr = MyAdam(weights=self.critic.model, learning_rate=lr)
-        self.cache = {}
 
     def grads_manual_np(self, tP, y_train, th, X, W2, adv, N=1):
         # print('shape:', tP.shape, y_train.shape)
@@ -65,9 +64,21 @@ class ACAgent:
         self.actor._add_to_cache("ath_np", ath_np)
         self.actor._add_to_cache("action", action)
         self.actor._add_to_cache("probs_np", probs_np)
+        self.actor._add_to_cache("state", state)
         return action
 
-    def learn(self, state, reward, next_state, done=False):
+    def learn(
+        self,
+        reward,
+        next_state,
+        state=None,
+        action=None,
+        probs_np=None,
+        ath_np=None,
+        done=False,
+    ):
+        if state is None:
+            state = self.actor.cache["state"]
         y_next = self.critic.forward(np.reshape(next_state, [1, -1]))
         th_next = self.critic.h.copy()
         y = self.critic.forward(np.reshape(state, [1, -1]))
@@ -84,10 +95,15 @@ class ACAgent:
         #     critic_np.model[k] -=lr*grads_critic_np[k]
 
         advantage = yhat - y
-        action = self.actor.cache["action"][-1]
+        if action is None:
+            action = self.actor.cache["action"][-1]
         yt = np.eye(self.n_actions)[action].reshape(1, -1)
-        probs_np = np.concatenate(self.actor.cache["probs_np"])
-        ath_np = np.concatenate(self.actor.cache["ath_np"])
+        if probs_np is None:
+            probs_np = self.actor.cache["probs_np"]
+        probs_np = np.concatenate(probs_np)
+        if ath_np is None:
+            ath_np = self.actor.cache["ath_np"]
+        ath_np = np.concatenate(ath_np)
         grads_actor_np = self.grads_manual_np(
             probs_np, yt, ath_np, state, self.actor.model["w2"], advantage, N=1
         )

@@ -1,3 +1,4 @@
+README.md
 setup.py
 minirl/__init__.py
 minirl.egg-info/PKG-INFO

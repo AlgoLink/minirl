@@ -5,7 +5,7 @@ import collections
 import copy
 import sys
 import itertools
-
+import pandas as pd
 
 from .utils import _repr_obj
 
@@ -82,8 +82,8 @@ class Base:
             or not.
         Examples
         --------
-        >>> from river import linear_model
-        >>> from river import optim
+        >>> from minirl import linear_model
+        >>> from minirl import optim
         >>> model = linear_model.LinearRegression(
         ...     optimizer=optim.SGD(lr=0.042),
         ... )
@@ -108,8 +108,8 @@ class Base:
           initializer=Zeros ()
         )
         The algorithm is recursively called down `Pipeline`s and `TransformerUnion`s.
-        >>> from river import compose
-        >>> from river import preprocessing
+        >>> from minirl import compose
+        >>> from minirl import preprocessing
         >>> model = compose.Pipeline(
         ...     preprocessing.StandardScaler(),
         ...     linear_model.LinearRegression(
@@ -195,8 +195,8 @@ class Base:
         new_attrs
         Examples
         --------
-        >>> from river import linear_model
-        >>> from river import optim
+        >>> from minirl import linear_model
+        >>> from minirl import optim
         >>> model = linear_model.LinearRegression(
         ...     optimizer=optim.SGD(0.042),
         ... )
@@ -222,8 +222,8 @@ class Base:
           initializer=Zeros ()
         )
         The algorithm is recursively called down `Pipeline`s and `TransformerUnion`s.
-        >>> from river import compose
-        >>> from river import preprocessing
+        >>> from minirl import compose
+        >>> from minirl import preprocessing
         >>> model = compose.Pipeline(
         ...     preprocessing.StandardScaler(),
         ...     linear_model.LinearRegression(

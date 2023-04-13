@@ -108,7 +108,7 @@ class PolicyNetwork(object):
         return probs
 
     ### MAIN NEURAL NETWORK STUFF
-    def forward(self, x):
+    def forward(self, x, test):
         """
         Forward pass observations (x) through network to get probabilities
         of taking each action
@@ -129,9 +129,10 @@ class PolicyNetwork(object):
         probs = self._softmax(logits)
 
         # cache values for backward (based on what is needed for analytic gradient calc)
-        self._add_to_cache("fwd_x", x)
-        self._add_to_cache("fwd_affine1", affine1)
-        self._add_to_cache("fwd_relu1", relu1)
+        if not test:
+            self._add_to_cache("fwd_x", x)
+            self._add_to_cache("fwd_affine1", affine1)
+            self._add_to_cache("fwd_relu1", relu1)
         return probs
 
     def backward(self, dout):
@@ -200,13 +201,13 @@ class PGAgent(object):
         self.rewards = []
         self.score_history = deque(maxlen=score_len)
 
-    def act(self, obs):
+    def act(self, obs, test=False):
         """
         Pass observations through network and sample an action to take. Keep track
         of dh to use to update weights
         """
         obs = np.reshape(obs, [1, -1])
-        netout = self.policy.forward(obs)[0]
+        netout = self.policy.forward(obs, test)[0]
 
         probs = netout
         # randomly sample action based on probabilities
@@ -269,7 +270,7 @@ class PGAgent(object):
         del self.rewards[:]
         del self.saved_action_gradients[:]
 
-    def cal_model_score(self, reward):
+    def add_step_reward(self, reward):
         self.rewards.append(reward)
         self.score_history.append(reward)
         if len(self.score_history) >= self.score_len:
@@ -309,11 +310,3 @@ def main():
 
         else:
             avg_reward.append(ep_reward)
-
-
-if __name__ == "__main__":
-    env = gym.make(args.env_id)
-    # env.seed(args.seed)
-    np.random.seed(args.seed)
-    reinforce = REINFORCE(env)
-    main()
