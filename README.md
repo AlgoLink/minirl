@@ -11,9 +11,16 @@
 
     .
     ├── core
+        ├── bandit.py               # EpsilonGreedy/UCB/LinUCB/ThompsonSampling algorithm
+        ├── onlineCluster.py        # online k-means using Lloyd's algorithm
         ├── pg.py                   # REINFORCE algorithm
         ├── deep_q_learning.py      # Deep Neural Network based Q-learning
         ├── ac.py                   # Actor-Critic algorithm
+        ├── ppo.py                  # Proximal Policy Optimization
+    ├── preprocessing
+        ├── feature_transformer.py  # OneHotEncoder/TargetEncoder
+        ├── scaler.py               # StandardScaler/MinMaxScaler/MaxAbsScaler
+        ├── stats.py                # runningReward
     ├── common                      
         ├── net.py                  # Common-deep-network
         ├── optim.py                # Optimizer        
