@@ -5,7 +5,7 @@
 
 ---
 
-这个 repo 包含一组从头开始使用 numpy 实现的用于强化学习的应用程序和算法。包括的算法q-learning、基于深度神经网络的REINFORCE和 Actor-Critic。
+这个 repo 包含一组从头开始使用 numpy 实现的用于强化学习的应用程序和算法。包括的算法q-learning、基于深度神经网络的REINFORCE、Actor-Critic和ppo等。
 
 ## 项目结构
 
