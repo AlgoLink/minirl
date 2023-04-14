@@ -39,7 +39,7 @@ class PolicyNetwork(object):
 
     """
 
-    def __init__(self, ob_n, ac_n, hidden_dim=200, dtype=np.float32, lr=0.001):
+    def __init__(self, ob_n, ac_n, hidden_dim=64, dtype=np.float32, lr=0.001):
         """
         Initialize a neural network to choose actions
 
