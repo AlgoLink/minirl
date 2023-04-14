@@ -39,7 +39,7 @@ class PolicyNetwork(object):
 
     """
 
-    def __init__(self, ob_n, ac_n, hidden_dim=64, dtype=np.float32, lr=0.001):
+    def __init__(self, ob_n, ac_n, hidden_dim=64, dtype=np.float32, lr=0.001, sample_len=7):
         """
         Initialize a neural network to choose actions
 
@@ -56,6 +56,8 @@ class PolicyNetwork(object):
         self.hidden_dim = H = hidden_dim
         self.dtype = dtype
         self.lr = lr
+
+        self.sample_len = sample_len
 
         # Initialize all weights (model params) with "Xavier Initialization"
         # weight matrix init = uniform(-1, 1) / sqrt(layer_input)
@@ -91,7 +93,8 @@ class PolicyNetwork(object):
         if name in self.cache:
             self.cache[name].append(val)
         else:
-            self.cache[name] = [val]
+            self.cache[name] = deque(maxlen=self.sample_len)
+            self.cache[name].append(val)
 
     def _update_grad(self, name, val):
         """Helper fucntion to set gradient without having to do checks"""
@@ -189,7 +192,7 @@ class PGAgent(object):
     Object to handle running the algorithm. Uses a PolicyNetwork
     """
 
-    def __init__(self, ob_n, ac_n, gamma=0.99, score_len=10):
+    def __init__(self, ob_n, ac_n, gamma=0.99, score_len=7):
         ob_n = ob_n
         ac_n = ac_n
         self.gamma = gamma
@@ -198,7 +201,7 @@ class PGAgent(object):
         self.policy = PolicyNetwork(ob_n, ac_n)
         # RL specific bookkeeping
         self.saved_action_gradients = []
-        self.rewards = []
+        self.rewards = deque(maxlen=score_len)
         self.score_history = deque(maxlen=score_len)
 
     def act(self, obs, test=False):
