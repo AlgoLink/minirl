@@ -17,6 +17,7 @@
         ├── deep_q_learning.py      # Deep Neural Network based Q-learning
         ├── ac.py                   # Actor-Critic algorithm
         ├── ppo.py                  # Proximal Policy Optimization
+        ├── DynaQ.py                # Dyna-Q algorithm
     ├── preprocessing
         ├── feature_transformer.py  # OneHotEncoder/TargetEncoder
         ├── scaler.py               # StandardScaler/MinMaxScaler/MaxAbsScaler
