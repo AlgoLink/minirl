@@ -50,7 +50,7 @@ class Policy(Base, abc.ABC):
                 yield arm_id
         yield self._pull(arm_ids)
 
-    def act(self, arm_ids: List[ArmID]=None):
+    def act(self, arm_ids: List[ArmID] = None):
         if arm_ids is None:
             arm_ids = range(self.n_actions)
         action = next(self.pull(arm_ids))
