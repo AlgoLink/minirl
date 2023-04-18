@@ -59,8 +59,9 @@ class DynaQ:
     def act(
         self,
         state,
-        model_id=None,
+        local_model_id=None,
         share_model_id=None,
+        update_his=True,
         topN=1,
         eps=None,
         use_doubuleQ=True,
@@ -84,12 +85,14 @@ class DynaQ:
             else:
                 doubleQ = 1
 
-            _action = self.greedy_action_selection(state, model_id, doubleQ, topN)
+            _action = self.greedy_action_selection(state, local_model_id, doubleQ, topN)
             if len(_action) < 1:
                 action = self.get_random_action(topN)[0]
             else:
                 action = _action[0]
         # # stateActFreq[s, a] = how many times we've been in state s and taken action a
+        if update_his:
+            self.update_stateActionHist(state, action, local_model_id)
         if share_model_id is not None:
             self.update_stateActFreq(share_model_id, state, action)
 
@@ -134,7 +137,6 @@ class DynaQ:
     def learn(
         self,
         state,
-        action,
         reward,
         local_model_id=None,
         share_model_id=None,
@@ -260,14 +262,14 @@ class DynaQ:
             if len(stateActionHist) > 0:
                 lastState = stateActionHist[-1][0]
                 lastAction = stateActionHist[-1][1]
-                self.updateStateStats(lastState, lastAction, state)
+                self.updateStateStats(lastState, lastAction, state, share_model_id)
 
-            self.update_avgRew(lastState, lastAction, float(reward), share_model_id)
+                self.update_avgRew(lastState, lastAction, float(reward), share_model_id)
 
         if use_dyna:
             # planning phase: update Q1/Q2 N times (1-step error instead of n-step)
             if share_model_id is not None:
-                for _ in range(self.N):
+                for _ in range(self._N):
                     s = np.random.choice(self.state_space)
                     explore = np.random.binomial(1, eps)
                     if explore == 1:
@@ -401,6 +403,8 @@ class DynaQ:
     def get_action_bylastDelta(self, state, model_id, topN=1):
         delta_key = f"{model_id}:{state}:lastDelta"
         action_list = self._score_db.zrange(delta_key, "0", str(topN - 1))
+        if len(action_list)<1:
+            action_list = np.random.choice(self.action_list).tolist()
         return action_list[0]
 
     def computeMultiStepReturn(self, rewards):
@@ -421,9 +425,9 @@ class DynaQ:
 
     def update_stateActionHist(self, state, action, model_id):
         stateActionHist = self.get_stateActionHist(model_id)
-        _stateActionHist = stateActionHist.append([state, action])
+        stateActionHist.append([state, action])
         stateActionHist_key = f"{model_id}:Hist"
-        self._his_db.set(stateActionHist_key, pickle.dumps(_stateActionHist))
+        self._his_db.set(stateActionHist_key, pickle.dumps(stateActionHist))
 
         return True
 
@@ -440,9 +444,9 @@ class DynaQ:
     def update_rewards(self, reward, model_id):
         rewards_key = f"{model_id}:Rewards"
         rewards = self.get_rewards(model_id)
-        _rewards = rewards.append(reward)
-        self._his_db.set(rewards_key, pickle.dumps(_rewards))
-        return _rewards
+        rewards.append(reward)
+        self._his_db.set(rewards_key, pickle.dumps(rewards))
+        return rewards
 
     def queryShareModel(
         self,
