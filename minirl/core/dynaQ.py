@@ -59,8 +59,9 @@ class DynaQ:
     def act(
         self,
         state,
-        model_id=None,
+        local_model_id=None,
         share_model_id=None,
+        update_his=True,
         topN=1,
         eps=None,
         use_doubuleQ=True,
@@ -84,12 +85,14 @@ class DynaQ:
             else:
                 doubleQ = 1
 
-            _action = self.greedy_action_selection(state, model_id, doubleQ, topN)
+            _action = self.greedy_action_selection(state, local_model_id, doubleQ, topN)
             if len(_action) < 1:
                 action = self.get_random_action(topN)[0]
             else:
                 action = _action[0]
         # # stateActFreq[s, a] = how many times we've been in state s and taken action a
+        if update_his:
+            self.update_stateActionHist(state, action, local_model_id)
         if share_model_id is not None:
             self.update_stateActFreq(share_model_id, state, action)
 
@@ -260,9 +263,9 @@ class DynaQ:
             if len(stateActionHist) > 0:
                 lastState = stateActionHist[-1][0]
                 lastAction = stateActionHist[-1][1]
-                self.updateStateStats(lastState, lastAction, state)
+                self.updateStateStats(lastState, lastAction, state, share_model_id)
 
-            self.update_avgRew(lastState, lastAction, float(reward), share_model_id)
+                self.update_avgRew(lastState, lastAction, float(reward), share_model_id)
 
         if use_dyna:
             # planning phase: update Q1/Q2 N times (1-step error instead of n-step)
