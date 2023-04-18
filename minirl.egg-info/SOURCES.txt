@@ -12,6 +12,7 @@ minirl/common/optim.py
 minirl/core/__init__.py
 minirl/core/ac.py
 minirl/core/bandit.py
+minirl/core/dynaQ.py
 minirl/core/engine.py
 minirl/core/nn.py
 minirl/core/pg.py
