@@ -12,6 +12,8 @@
     .
     ├── core
         ├── bandit.py               # EpsilonGreedy/UCB/LinUCB/ThompsonSampling algorithm
+        ├── smab.py                 # stochastic Multi-Armed Bandit (sMAB)
+        ├── cmab.py                 # contextual Multi-Armed Bandit (cMAB) based on Thompson Sampling
         ├── onlineCluster.py        # online k-means using Lloyd's algorithm
         ├── pg.py                   # REINFORCE algorithm
         ├── deep_q_learning.py      # Deep Neural Network based Q-learning
