@@ -20,6 +20,7 @@
         ├── ac.py                   # Actor-Critic algorithm
         ├── ppo.py                  # Proximal Policy Optimization
         ├── DynaQ.py                # Dyna-Q algorithm
+        ├── DynaQ_plus.py           # Time-based model for planning in Dyna-Q+
     ├── preprocessing
         ├── feature_transformer.py  # OneHotEncoder/TargetEncoder
         ├── scaler.py               # StandardScaler/MinMaxScaler/MaxAbsScaler
