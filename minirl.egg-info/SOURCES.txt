@@ -12,11 +12,15 @@ minirl/common/optim.py
 minirl/core/__init__.py
 minirl/core/ac.py
 minirl/core/bandit.py
+minirl/core/cmab.py
 minirl/core/dynaQ.py
+minirl/core/dynaQ_plus.py
 minirl/core/engine.py
 minirl/core/nn.py
 minirl/core/pg.py
 minirl/core/reinforce.py
+minirl/core/rl_utils.py
+minirl/core/smab.py
 minirl/preprocessing/__init__.py
 minirl/preprocessing/base.py
 minirl/preprocessing/feature_transformer.py

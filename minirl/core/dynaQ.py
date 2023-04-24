@@ -206,6 +206,7 @@ class DynaQ:
                     Q2_state_value = self.get_Q_state_value(
                         state, argmax_Q1_action, local_model_id, "qvalue2"
                     )
+                    startAction = str(startAction)
                     Q1_start_state_value = self.get_Q_state_value(
                         startState,
                         startAction,
