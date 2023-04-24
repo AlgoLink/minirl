@@ -118,21 +118,20 @@ class DynaQ:
         model_key_start1 = f"{model_id}:{s0}:{a0}:qvalue1"
         self._model_db.set(model_key_start1, str(Q0_state_value))
 
-        self.update_q_score(s0,Q0_state_value,a0,model_id,"q1")
+        self.update_q_score(s0, Q0_state_value, a0, model_id, "q1")
 
-    def update_q_score(self,state,qvalue,action, model_id,q_suffix="q1"):
-        if q_suffix=="q1":
+    def update_q_score(self, state, qvalue, action, model_id, q_suffix="q1"):
+        if q_suffix == "q1":
             score_key = f"{model_id}:{state}:Qscore1"
         else:
             score_key = f"{model_id}:{state}:Qscore2"
-        if float(qvalue)>0:
+        if float(qvalue) > 0:
             Q_score = "-{}".format(qvalue)
         else:
             Q0_state_value = abs(qvalue)
             Q_score = "{}".format(Q0_state_value)
 
         self._score_db.zadd(score_key, Q_score, str(action))
-        
 
     def update(self, s0, a0, r, s1, model_id):
         self.q_learning(s0, a0, r, s1, model_id)
@@ -227,7 +226,9 @@ class DynaQ:
                     score_key = f"{local_model_id}:{startState}:Qscore1"
                     action = startAction
                     qvalue = Q1_start_state_value
-                    self.update_q_score(startState,qvalue,action,local_model_id,"q1")
+                    self.update_q_score(
+                        startState, qvalue, action, local_model_id, "q1"
+                    )
 
                 else:
                     argmax_Q2_action = self.greedy_action_selection(
@@ -260,7 +261,9 @@ class DynaQ:
                     score_key = f"{local_model_id}:{startState}:Qscore2"
                     action = startAction
                     qvalue = Q2_start_state_action_value
-                    self.update_q_score(startState,qvalue,action,local_model_id,"q2")
+                    self.update_q_score(
+                        startState, qvalue, action, local_model_id, "q2"
+                    )
             else:
                 argmax_Q1_action = self.greedy_action_selection(
                     state, local_model_id, doubleQ=1
@@ -288,8 +291,8 @@ class DynaQ:
                 score_key = f"{local_model_id}:{startState}:Qscore1"
                 action = startAction
                 qvalue = Q1_start_state_action_value
-                self.update_q_score(startState,qvalue,action,local_model_id,"q1")
-            
+                self.update_q_score(startState, qvalue, action, local_model_id, "q1")
+
             if share_model_id is not None:
                 self.update_lastDelta(startState, startAction, delta, share_model_id)
         # update Model(s, a) with (s', r)
@@ -346,7 +349,7 @@ class DynaQ:
                             score_key = f"{local_model_id}:{s}:Qscore1"
                             action = a
                             qvalue = Q1_start_state_value
-                            self.update_q_score(s,qvalue,action,local_model_id,"q1")
+                            self.update_q_score(s, qvalue, action, local_model_id, "q1")
                         else:
                             argmax_Q2_action = self.greedy_action_selection(
                                 nextState, local_model_id, doubleQ=2
@@ -375,7 +378,7 @@ class DynaQ:
                             score_key = f"{local_model_id}:{s}:Qscore2"
                             action = a
                             qvalue = Q2_start_state_value
-                            self.update_q_score(s,qvalue,action,local_model_id,"q2")
+                            self.update_q_score(s, qvalue, action, local_model_id, "q2")
                     else:
                         argmax_Q1_action = self.greedy_action_selection(
                             nextState, local_model_id, doubleQ=1
@@ -400,7 +403,7 @@ class DynaQ:
                         score_key = f"{local_model_id}:{s}:Qscore1"
                         action = a
                         qvalue = Q1_start_state_value
-                        self.update_q_score(s,qvalue,action,local_model_id,"q1")
+                        self.update_q_score(s, qvalue, action, local_model_id, "q1")
 
                     self.update_lastDelta(s, a, delta, share_model_id)
 
@@ -420,7 +423,7 @@ class DynaQ:
 
     def update_lastDelta(self, state, action, delta, model_id):
         delta_key = f"{model_id}:{state}:lastDelta"
-        if float(delta)>0:
+        if float(delta) > 0:
             delta_score = "-{}".format(delta)
         else:
             _delta = abs(delta)
