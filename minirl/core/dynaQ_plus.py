@@ -2,6 +2,7 @@ from copy import deepcopy
 import numpy as np
 from collections import deque
 import pickle
+import random
 
 # Time-based model for planning in Dyna-Q+
 class TimeModel:
@@ -50,6 +51,17 @@ class TimeModel:
         next_state = deepcopy(next_state)
 
         return state, action, next_state, reward
+
+class simpleModel:
+    def __init__(self):
+        self.model = {}
+
+    def feed(self, state, action, next_state, reward):
+        self.model[(state, action)] = reward, next_state  # 将数据添加到模型中
+
+    def sample(self):
+        (s, a), (r, s_) = random.choice(list(self.model.items()))
+        return s, a, s_, r
 
 
 class DynaQPlus:
@@ -126,7 +138,7 @@ class DynaQPlus:
             key = f"{model_id}:Hist"
             value = pickle.dumps([request_id, state, action, next_state])
 
-        self._his_db.rlpush(key, value)
+        self._his_db.lpush(key, value)
         return True
 
     def get_state_action_hist2(self, model_id, type="action_pair"):
@@ -214,7 +226,8 @@ class DynaQPlus:
         action = None
         next_state = None
         if recom_his is not None:
-            _request_id, _state, _action, _next_state = pickle.loads(recom_his)[0]
+            _request_id, _state, _action, _next_state = pickle.loads(recom_his[0])
+            _action = str(_action)
             if str(_request_id) == str(request_id):
 
                 argmax_Q1_action = self.greedy_action_selection(_next_state, model_id)[
@@ -242,10 +255,11 @@ class DynaQPlus:
             dyna_model.feed(state, action, next_state, reward)
 
         # sample experience from the model
-        if len(dyna_model.model.keys()) > planning_steps:
+        if len(dyna_model.model.keys()) > planning_steps and planning_steps>0:
             # q_model = self.get_q_model(model_id)
             for t in range(0, planning_steps):
-                state_, action_, next_state_, reward_ = dyna_model.model.sample()
+                state_, action_, next_state_, reward_ = dyna_model.sample()
+                action_ = str(action_)
                 argmax_Q1_action = self.greedy_action_selection(next_state_, model_id)[
                     0
                 ]
@@ -258,7 +272,7 @@ class DynaQPlus:
                 Q0_state_value += self.alpha * td_error
 
                 self.q_model[(state_, action_)] = Q0_state_value
-                self.update_q_score(state_, Q0_state_value, action_)
+                self.update_q_score(state_, Q0_state_value, action_,model_id)
 
         self.update_q_model(self.q_model, model_id)
         return True
