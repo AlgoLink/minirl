@@ -23,6 +23,7 @@
 import numpy as np
 import math
 import random
+import pickle
 
 from ..common.base import Policy
 
@@ -127,3 +128,103 @@ class EpsilonGreedy(Policy):
     @classmethod
     def _unit_test_params(cls):
         yield {"epsilon": 0.2}
+
+
+class BanditRlite:
+    def __init__(self, actions, eps=0, model_db=None, score_db=None):
+        self._model_db = model_db
+        self._score_db = score_db
+        self._actions = actions
+        self.q_model = {}
+
+        self.eps = eps
+
+    def learn(self, action, reward, model_id=None):
+        # Update Q action-value given (action, reward)
+        # self.n[action] += 1
+        expose_key = f"{model_id}:{action}:BE"
+        q_model = self.get_q_model(model_id)
+        self.q_model = q_model
+        _n = self._model_db.get(expose_key)
+        if _n is None:
+            n = 1
+        else:
+            n = max(1, float(_n))
+        if action not in self.q_model:
+            self.q_model[action]=0.0
+        self.q_model[action] += (1.0 / n) * (reward - self.q_model[action])
+        qvalue = self.q_model[action]
+        self.update_q_model(self.q_model, model_id)
+        self.update_q_score(qvalue, action, model_id)
+
+    def update_q_score(self, qvalue, action, model_id):
+        score_key = f"{model_id}:BQscore"
+
+        if float(qvalue) > 0:
+            Q_score = "-{}".format(qvalue)
+        else:
+            Q0_state_value = abs(qvalue)
+            Q_score = "{}".format(Q0_state_value)
+
+        self._score_db.zadd(score_key, Q_score, str(action))
+
+    def update_q_model(self, Q_dict, model_id):
+        model_key = f"{model_id}:Bqvalue"
+        self._model_db.set(model_key, pickle.dumps(Q_dict))
+
+        return model_key
+
+    def get_q_model(self, model_id):
+        model_key = f"{model_id}:Bqvalue"
+        _model = self._model_db.get(model_key)
+        if _model is None:
+            model = {}
+        else:
+            model = pickle.loads(_model)
+        return model
+
+    def act(self, model_id, expose=True):
+        # Epsilon-greedy policy
+        if np.random.random() < self.eps:  # explore
+            action = self.get_random_action(1)
+        else:  # exploit
+            action = self.greedy_action_selection(model_id)
+
+        expose_key = f"{model_id}:{action}:BE"
+        if expose:
+            self._increment_customitem_tries(expose_key)
+        return action
+
+    # update custom itemkey cnt
+    def _increment_customitem_tries(self, key: str) -> None:
+        customitem_tries = self._model_db.incr(
+            key
+        )  # self.rlite_client.command("incr",key_tries)
+        return customitem_tries
+
+    def get_random_action(self, topN):
+        if topN > len(self._actions):
+            raise Exception("topN is longer than len of self.actions")
+        return np.random.choice(
+            self._actions, size=topN, replace=False, p=None
+        ).tolist()
+
+    def greedy_action_selection(self, model_id=None, topN=1, withscores=False):
+        """
+        Selects action with the highest Q-value for the given state.
+        """
+        # Get all the Q-values for all possible actions for the state
+        maxQ_action_list = self.get_maxQ(model_id, topN, withscores=withscores)
+        if len(maxQ_action_list) < 1:
+            maxQ_action_list = self.get_random_action(topN)
+        return maxQ_action_list
+
+    def get_maxQ(self, model_id, topN, withscores=False):
+        score_key = f"{model_id}:BQscore"
+        if withscores:
+            score_list = self._score_db.zrange(
+                score_key, "0", str(topN - 1), "withscores"
+            )
+        else:
+            score_list = self._score_db.zrange(score_key, "0", str(topN - 1))
+        return score_list
