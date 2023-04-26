@@ -1,6 +1,7 @@
 from queue import Queue
 import random
 
+
 class ReplayMemory:
     """在这个示例中，我们使用Queue创建了一个先进先出队列，作为存储经验的数据结构。ReplayMemory类有以下几个方法：
 
