@@ -52,6 +52,7 @@ class TimeModel:
 
         return state, action, next_state, reward
 
+
 class simpleModel:
     def __init__(self):
         self.model = {}
@@ -76,6 +77,7 @@ class DynaQPlus:
         model_db=None,
         score_db=None,
         his_db=None,
+        dyna_method="simple",
     ):
         self.actions = actions
         self.eps = eps
@@ -91,6 +93,10 @@ class DynaQPlus:
         # Stabilize and converge to optimal policy
         self.alpha_decay = alpha_decay  # 600 episodes to fully decay
         self.q_model = {}
+        if dyna_method == "simple":
+            self.dyna_model = simpleModel()
+        else:
+            self.dyna_model = TimeModel(self.actions)
 
     def act(
         self, state, model_id=None, request_id=None, topN=1, eps=None, save_his=False
@@ -222,6 +228,7 @@ class DynaQPlus:
         recom_his = self.get_state_action_hist(model_id)
         q_model = self.get_q_model(model_id)
         self.q_model = q_model
+        self.dyna_model = dyna_model
         state = None
         action = None
         next_state = None
@@ -252,13 +259,13 @@ class DynaQPlus:
 
         # feed the model with experience
         if dyna_model is not None and state is not None:
-            dyna_model.feed(state, action, next_state, reward)
+            self.dyna_model.feed(state, action, next_state, reward)
 
         # sample experience from the model
-        if len(dyna_model.model.keys()) > planning_steps and planning_steps>0:
+        if len(self.dyna_model.model.keys()) > planning_steps and planning_steps > 0:
             # q_model = self.get_q_model(model_id)
             for t in range(0, planning_steps):
-                state_, action_, next_state_, reward_ = dyna_model.sample()
+                state_, action_, next_state_, reward_ = self.dyna_model.sample()
                 action_ = str(action_)
                 argmax_Q1_action = self.greedy_action_selection(next_state_, model_id)[
                     0
@@ -272,7 +279,7 @@ class DynaQPlus:
                 Q0_state_value += self.alpha * td_error
 
                 self.q_model[(state_, action_)] = Q0_state_value
-                self.update_q_score(state_, Q0_state_value, action_,model_id)
+                self.update_q_score(state_, Q0_state_value, action_, model_id)
 
         self.update_q_model(self.q_model, model_id)
         return True

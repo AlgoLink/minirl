@@ -19,6 +19,7 @@
         ├── deep_q_learning.py      # Deep Neural Network based Q-learning
         ├── ac.py                   # Actor-Critic algorithm
         ├── ppo.py                  # Proximal Policy Optimization
+        ├── one_step_pg.py          # One Step Actor Critic and Proximal Policy Optimization
         ├── DynaQ.py                # Dyna-Q algorithm
         ├── DynaQ_plus.py           # Time-based model for planning in Dyna-Q+
     ├── preprocessing
@@ -27,7 +28,8 @@
         ├── stats.py                # runningReward
     ├── common                      
         ├── net.py                  # Common-deep-network
-        ├── optim.py                # Optimizer        
+        ├── optim.py                # Optimizer 
+        ├── pg_models.py            # linear regression for the value function and single layer Softmax   
     └── README.md
 
 ## 技术架构

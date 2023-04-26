@@ -77,7 +77,7 @@ class DynaQPlus:
         model_db=None,
         score_db=None,
         his_db=None,
-        dyna_method="simple"
+        dyna_method="simple",
     ):
         self.actions = actions
         self.eps = eps
@@ -93,8 +93,8 @@ class DynaQPlus:
         # Stabilize and converge to optimal policy
         self.alpha_decay = alpha_decay  # 600 episodes to fully decay
         self.q_model = {}
-        if dyna_method=="simple":
-            self.dyna_model=simpleModel()
+        if dyna_method == "simple":
+            self.dyna_model = simpleModel()
         else:
             self.dyna_model = TimeModel(self.actions)
 
@@ -228,7 +228,7 @@ class DynaQPlus:
         recom_his = self.get_state_action_hist(model_id)
         q_model = self.get_q_model(model_id)
         self.q_model = q_model
-        self.dyna_model=dyna_model
+        self.dyna_model = dyna_model
         state = None
         action = None
         next_state = None

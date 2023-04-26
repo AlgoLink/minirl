@@ -20,12 +20,17 @@
    = 1/n * (n * Q_n(a) + r_n(a) - Q_n(a))
    = Q_n(a) + 1/n * (r_n(a) - Q_n(a))
 """
+"""A module containing different variations on multi-armed bandit environments."""
+
+from abc import ABC, abstractmethod
+
 import numpy as np
 import math
 import random
 import pickle
 
 from ..common.base import Policy
+from ..common.testing import is_number
 
 
 class BanditEEAgent:
@@ -151,7 +156,7 @@ class BanditRlite:
         else:
             n = max(1, float(_n))
         if action not in self.q_model:
-            self.q_model[action]=0.0
+            self.q_model[action] = 0.0
         self.q_model[action] += (1.0 / n) * (reward - self.q_model[action])
         qvalue = self.q_model[action]
         self.update_q_model(self.q_model, model_id)
@@ -228,3 +233,181 @@ class BanditRlite:
         else:
             score_list = self._score_db.zrange(score_key, "0", str(topN - 1))
         return score_list
+
+
+# bandit for linucb
+class Bandit(ABC):
+    def __init__(self, rewards, reward_probs, context=None):
+        assert len(rewards) == len(reward_probs)
+        self.step = 0
+        self.n_arms = len(rewards)
+
+        super().__init__()
+
+    def __repr__(self):
+        """A string representation for the bandit"""
+        HP = self.hyperparameters
+        params = ", ".join(["{}={}".format(k, v) for (k, v) in HP.items() if k != "id"])
+        return "{}({})".format(HP["id"], params)
+
+    @property
+    def hyperparameters(self):
+        """A dictionary of the bandit hyperparameters"""
+        return {}
+
+    @abstractmethod
+    def oracle_payoff(self, context=None):
+        """
+        Return the expected reward for an optimal agent.
+
+        Parameters
+        ----------
+        context : :py:class:`ndarray <numpy.ndarray>` of shape `(D, K)` or None
+            The current context matrix for each of the bandit arms, if
+            applicable. Default is None.
+
+        Returns
+        -------
+        optimal_rwd : float
+            The expected reward under an optimal policy.
+        """
+        pass
+
+    def pull(self, arm_id, context=None):
+        """
+        "Pull" (i.e., sample from) a given arm's payoff distribution.
+
+        Parameters
+        ----------
+        arm_id : int
+            The integer ID of the arm to sample from
+        context : :py:class:`ndarray <numpy.ndarray>` of shape `(D,)` or None
+            The context vector for the current timestep if this is a contextual
+            bandit. Otherwise, this argument is unused and defaults to None.
+
+        Returns
+        -------
+        reward : float
+            The reward sampled from the given arm's payoff distribution
+        """
+        assert arm_id < self.n_arms
+
+        self.step += 1
+        return self._pull(arm_id, context)
+
+    def reset(self):
+        """Reset the bandit step and action counters to zero."""
+        self.step = 0
+
+    @abstractmethod
+    def _pull(self, arm_id):
+        pass
+
+
+class ContextualLinearBandit(Bandit):
+    def __init__(self, K, D, payoff_variance=1):
+        r"""
+        A contextual linear multi-armed bandit.
+
+        Notes
+        -----
+        In a contextual linear bandit the expected payoff of an arm :math:`a
+        \in \mathcal{A}` at time `t` is a linear combination of its context
+        vector :math:`\mathbf{x}_{t,a}` with a coefficient vector
+        :math:`\theta_a`:
+
+        .. math::
+
+            \mathbb{E}[r_{t, a} \mid \mathbf{x}_{t, a}] = \mathbf{x}_{t,a}^\top \theta_a
+
+        In this implementation, the arm coefficient vectors :math:`\theta` are
+        initialized independently from a uniform distribution on the interval
+        [-1, 1], and the specific reward at timestep `t` is normally
+        distributed:
+
+        .. math::
+
+            r_{t, a} \mid \mathbf{x}_{t, a} \sim
+                \mathcal{N}(\mathbf{x}_{t,a}^\top \theta_a, \sigma_a^2)
+
+        Parameters
+        ----------
+        K : int
+            The number of bandit arms
+        D : int
+            The dimensionality of the context vectors
+        payoff_variance : float or :py:class:`ndarray <numpy.ndarray>` of shape `(K,)`
+            The variance of the random noise in the arm payoffs. If a float,
+            the variance is assumed to be equal for each arm. Default is 1.
+        """
+        if is_number(payoff_variance):
+            payoff_variance = [payoff_variance] * K
+
+        assert len(payoff_variance) == K
+        assert all(v > 0 for v in payoff_variance)
+
+        self.K = K
+        self.D = D
+        self.payoff_variance = payoff_variance
+
+        # use a dummy placeholder variable to initialize the Bandit superclass
+        placeholder = [None] * K
+        super().__init__(placeholder, placeholder)
+
+        # initialize the theta matrix
+        self.thetas = np.random.uniform(-1, 1, size=(D, K))
+        self.thetas /= np.linalg.norm(self.thetas, 2)
+
+    @property
+    def hyperparameters(self):
+        """A dictionary of the bandit hyperparameters"""
+        return {
+            "id": "ContextualLinearBandit",
+            "K": self.K,
+            "D": self.D,
+            "payoff_variance": self.payoff_variance,
+        }
+
+    @property
+    def parameters(self):
+        """A dictionary of the current bandit parameters"""
+        return {"thetas": self.thetas}
+
+    def get_context(self):
+        """
+        Sample the context vectors for each arm from a multivariate standard
+        normal distribution.
+
+        Returns
+        -------
+        context : :py:class:`ndarray <numpy.ndarray>` of shape `(D, K)`
+            A `D`-dimensional context vector sampled from a standard normal
+            distribution for each of the `K` bandit arms.
+        """
+        return np.random.normal(size=(self.D, self.K))
+
+    def oracle_payoff(self, context):
+        """
+        Return the expected reward for an optimal agent.
+
+        Parameters
+        ----------
+        context : :py:class:`ndarray <numpy.ndarray>` of shape `(D, K)` or None
+            The current context matrix for each of the bandit arms, if
+            applicable. Default is None.
+
+        Returns
+        -------
+        optimal_rwd : float
+            The expected reward under an optimal policy.
+        optimal_arm : float
+            The arm ID with the largest expected reward.
+        """
+        best_arm = np.argmax(self.arm_evs)
+        return self.arm_evs[best_arm], best_arm
+
+    def _pull(self, arm_id, context):
+        K, thetas = self.K, self.thetas
+        self._noise = np.random.normal(scale=self.payoff_variance, size=self.K)
+        self.arm_evs = np.array([context[:, k] @ thetas[:, k] for k in range(K)])
+        return (self.arm_evs + self._noise)[arm_id]
