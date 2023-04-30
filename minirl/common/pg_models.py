@@ -1,5 +1,6 @@
 import numpy as np
 import warnings
+from scipy.special import expit
 
 warnings.filterwarnings("error")  # for overflow
 
@@ -17,9 +18,18 @@ class Policy:
     def get_action(self, state_features, compute_gradient):
         state_features = np.squeeze(state_features)
         # softmax over all actions - probability of taking them
-        action_values = np.exp(np.matmul(self.parameters, state_features))
-        normalization = np.sum(action_values, axis=0)
-        action_probabilities = action_values / normalization
+        # print(self.parameters,"vself.parameters")
+        # print(state_features,"state_features")
+        # print(np.matmul(self.parameters, state_features),"sffff")
+        yhat = np.matmul(self.parameters, state_features)
+        # action_values = np.exp(np.matmul(self.parameters, state_features))
+        h2 = np.reshape(yhat, [1, -1])
+        action_values = self._softmax(h2)[0]
+        # action_values = expit(np.matmul(self.parameters , state_features))
+        # normalization = np.sum(action_values, axis=0)
+        # action_probabilities = action_values / normalization
+
+        action_probabilities = action_values
 
         # sample an action
         action_index = np.random.choice(
@@ -39,6 +49,13 @@ class Policy:
 
         return (action_index, np.squeeze(action_probabilities))
 
+    def _softmax(self, x):
+        shifted_logits = x - np.max(x, axis=1, keepdims=True)
+        Z = np.sum(np.exp(shifted_logits), axis=1, keepdims=True)
+        log_probs = shifted_logits - np.log(Z)
+        probs = np.exp(log_probs)
+        return probs
+
     def ppo_gradient_step(
         self, state_features, old_action_probabilities, actions, advantages
     ):
@@ -49,17 +66,27 @@ class Policy:
         # get probability for every action at every state that was seen in the previous rollout
         state_features = np.expand_dims(np.transpose(state_features), 0)
         parameters = np.reshape(self.parameters, (a_len, s_len, 1))
-        action_values = np.exp(np.sum(parameters * state_features, axis=1))
+        # print(np.sum(parameters * state_features, axis=1).tolist())
+        # action_values = np.exp(np.sum(parameters * state_features, axis=1))
+        action_values = expit(np.sum(parameters * state_features, axis=1))
+        # print(action_values,np.exp(np.sum(parameters * state_features, axis=1)))
+        # sprint(np.sum(parameters * state_features))
+        # action_values = self._softmax(np.sum(parameters * state_features,axis=1))
         normalization = np.sum(action_values, axis=0)
         current_action_probabilities = np.reshape(
-            action_values / normalization, (a_len, 1, n_len)
+            action_values / (normalization + np.finfo(np.float32).eps),
+            (a_len, 1, n_len),
         )
 
         # compute ratio needed by the ppo algorithm
         old_action_probabilities = np.expand_dims(
             np.transpose(old_action_probabilities), 1
         )
-        ratios = current_action_probabilities / old_action_probabilities
+        # print(old_action_probabilities.tolist(),"old")
+        # print(current_action_probabilities.tolist(),"new")
+        ratios = current_action_probabilities / (
+            old_action_probabilities + np.finfo(np.float32).eps
+        )
 
         gradients = (
             -1 * current_action_probabilities
