@@ -22,6 +22,13 @@
         ├── one_step_pg.py          # One Step Actor Critic and Proximal Policy Optimization(uniAgent)
         ├── DynaQ.py                # Dyna-Q algorithm
         ├── DynaQ_plus.py           # Time-based model for planning in Dyna-Q+
+    ├── neural_nets
+        ├── init.py                 # Initializer codes
+        ├── io.py                   # DataIter for convenient IO  
+        ├── layers.py               # DNN Layers
+        ├── model.py                # Model base class codes. Adapted from cs231n lab codes
+        ├── optim.py                # Optimizer codes. Adapted from cs231n lab codes 
+        ├── solver.py               # SGD solver class for quick training. Adapted from cs231n lab codes
     ├── preprocessing
         ├── feature_transformer.py  # OneHotEncoder/TargetEncoder
         ├── scaler.py               # StandardScaler/MinMaxScaler/MaxAbsScaler
