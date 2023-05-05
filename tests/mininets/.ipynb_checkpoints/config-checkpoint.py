@@ -4,12 +4,14 @@ import minirl.neural_nets.nn.optim
 from minirl.neural_nets.nn.init import custom
 from minirl.neural_nets.nn.optim import rmsprop
 
+
 class Config(object):
     def __init__(self, args):
         # Default training settings
         self.init_func = custom
         self.init_config = {
-            'function': lambda shape: np.random.randn(shape[0], shape[1]) / np.sqrt(shape[1])
+            "function": lambda shape: np.random.randn(shape[0], shape[1])
+            / np.sqrt(shape[1])
         }
         self.learning_rate = 1e-3
         self.update_rule = rmsprop
@@ -17,10 +19,10 @@ class Config(object):
         self.clip_magnitude = 40.0
 
         # Default model settings
-        self.hidden_size = 200
+        self.hidden_size = 64
         self.gamma = 0.99
         self.lambda_ = 1.0
-        self.vf_wt = 0.5        # Weight of value function term in the loss
+        self.vf_wt = 0.5  # Weight of value function term in the loss
         self.entropy_wt = 0.01  # Weight of entropy term in the loss
 
         # Override defaults with values from `args`.

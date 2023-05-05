@@ -19,7 +19,7 @@ class Config(object):
         self.clip_magnitude = 40.0
 
         # Default model settings
-        self.hidden_size = 200
+        self.hidden_size = 64
         self.gamma = 0.99
         self.lambda_ = 1.0
         self.vf_wt = 0.5  # Weight of value function term in the loss

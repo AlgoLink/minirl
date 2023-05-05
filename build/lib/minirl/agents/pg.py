@@ -1,4 +1,5 @@
 """
+
 This file implements the standard vanilla REINFORCE algorithm, also
 known as Monte Carlo Policy Gradient.
 
@@ -6,22 +7,20 @@ The main neural network logic is contained in the PolicyNetwork class,
 with more algorithm specific code, including action taking and loss
 computing contained in the REINFORCE class.  (NOTE: this only supports discrete actions)
 
+
     Resources:
         Sutton and Barto: http://incompleteideas.net/book/the-book-2nd.html
         Karpathy blog: http://karpathy.github.io/2016/05/31/rl/
+
 
     Glossary:
         (w.r.t.) = with respect to (as in taking gradient with respect to a variable)
         (h or logits) = numerical policy preferences, or unnormalized probailities of actions
 """
-
+# TODO: add weight saving and loading?
 import numpy as np
-from itertools import count
-from ..common.optim import adam
-from ..common.replay_buffer import ReplayMemory
-import pickle
 
-# 多步剧本有效
+from ..common.optim import adam
 
 
 class PolicyNetwork(object):
@@ -34,16 +33,7 @@ class PolicyNetwork(object):
 
     """
 
-    def __init__(
-        self,
-        ob_n,
-        ac_n,
-        lr=1e-3,
-        hidden_dim=64,
-        capacity=20,
-        batch_size=7,
-        dtype=np.float32,
-    ):
+    def __init__(self, ob_n, ac_n, hidden_dim=64, lr=1e-3, dtype=np.float32):
         """
         Initialize a neural network to choose actions
 
@@ -59,8 +49,8 @@ class PolicyNetwork(object):
         self.ac_n = ac_n
         self.hidden_dim = H = hidden_dim
         self.dtype = dtype
+        self.lr = lr
 
-        self.batch_size = batch_size
         # Initialize all weights (model params) with "Xavier Initialization"
         # weight matrix init = uniform(-1, 1) / sqrt(layer_input)
         # bias init = zeros()
@@ -78,15 +68,11 @@ class PolicyNetwork(object):
         self.cache = {}
         self.grads = {}
         # Configuration for Adam optimization
-        self.optimization_config = {"learning_rate": lr}
+        self.optimization_config = {"learning_rate": self.lr}
         self.adam_configs = {}
         for p in self.params:
             d = {k: v for k, v in self.optimization_config.items()}
             self.adam_configs[p] = d
-
-        self.capacity = capacity
-        self.replay_buffer = ReplayMemory(capacity=capacity)
-        self.temp_replay_buffer = ReplayMemory(capacity=1)
 
     ### HELPER FUNCTIONS
     def _zero_grads(self):
@@ -140,10 +126,9 @@ class PolicyNetwork(object):
         self._add_to_cache("fwd_x", x)
         self._add_to_cache("fwd_affine1", affine1)
         self._add_to_cache("fwd_relu1", relu1)
-        self.temp_replay_buffer.push([x, affine1, relu1])
         return probs
 
-    def backward(self, dout, fwd_relu1, fwd_affine1, fwd_x):
+    def backward(self, dout):
         """
         Backwards pass of the network.
 
@@ -161,9 +146,9 @@ class PolicyNetwork(object):
         W1, b1, W2, b2 = p["W1"], p["b1"], p["W2"], p["b2"]
 
         # get values from network forward passes (for analytic gradient computations)
-        # fwd_relu1 = np.concatenate(self.cache["fwd_relu1"])
-        # fwd_affine1 = np.concatenate(self.cache["fwd_affine1"])
-        # fwd_x = np.concatenate(self.cache["fwd_x"])
+        fwd_relu1 = np.concatenate(self.cache["fwd_relu1"])
+        fwd_affine1 = np.concatenate(self.cache["fwd_affine1"])
+        fwd_x = np.concatenate(self.cache["fwd_x"])
 
         # Analytic gradient of last layer for backprop
         # affine2 = W2*relu1 + b2
@@ -190,43 +175,27 @@ class PolicyNetwork(object):
 
         # reset cache for next backward pass
         self.cache = {}
-        self.replay_buffer = ReplayMemory(capacity=self.capacity)
 
 
-class REINFORCE(object):
+class PGAgent(object):
     """
     Object to handle running the algorithm. Uses a PolicyNetwork
     """
 
-    def __init__(
-        self,
-        state_dim,
-        act_dim,
-        gamma=0.99,
-        model_db=None,
-        grad_db=None,
-        capacity=100000000,
-        batch_size=9,
-    ):
-        ob_n = state_dim
-        ac_n = act_dim
-        self._model_db = model_db
-        self._grad_db = grad_db
+    def __init__(self, obs_n, act_n, hidden_dim=64, lr=1e-3, seed=42):
+        self.policy = PolicyNetwork(obs_n, act_n, hidden_dim, lr)
 
-        self.policy = PolicyNetwork(
-            ob_n, ac_n, capacity=capacity, batch_size=batch_size
-        )
         # RL specific bookkeeping
         self.saved_action_gradients = []
         self.rewards = []
-        self.gamma = gamma
+        np.random.seed(seed)
 
-    def act(self, state, model_id):
+    def act(self, obs):
         """
         Pass observations through network and sample an action to take. Keep track
         of dh to use to update weights
         """
-        obs = np.reshape(state, [1, -1])
+        obs = np.reshape(obs, [1, -1])
         netout = self.policy.forward(obs)[0]
 
         probs = netout
@@ -237,15 +206,7 @@ class REINFORCE(object):
         # (see README.md for derivation)
         dh = -1 * probs
         dh[action] += 1
-        # self.saved_action_gradients.append(dh)
-        grad_key = f"{model_id}:agrad"
-        _action_grad = self._grad_db.get(grad_key)
-        if _action_grad is None:
-            action_grad = self.saved_action_gradients
-        else:
-            action_grad = pickle.loads(_action_grad)
-        action_grad.append(dh)
-        self._grad_db.set(grad_key, pickle.dumps(action_grad))
+        self.saved_action_gradients.append(dh)
 
         return action
 
@@ -260,7 +221,7 @@ class REINFORCE(object):
 
         next_return = 0  # 0 because we start at the last timestep
         for t in reversed(range(0, len(rewards))):
-            next_return = rewards[t] + self.gamma * next_return
+            next_return = rewards[t] + args.gamma * next_return
             returns[t] = next_return
         # normalize for better statistical properties
         returns = (returns - returns.mean()) / (
@@ -268,93 +229,32 @@ class REINFORCE(object):
         )
         return returns
 
-    def learn(self, reward, model_id=None, learn=True):
+    def learn(self):
         """
         At the end of the episode, calculate the discounted return for each time step and update the model parameters
         """
-        states, affine1s, relu1s, rewards = self.update_buffer(reward, learn)
+        action_gradient = np.array(self.saved_action_gradients)
+        returns = self.calculate_discounted_returns(self.rewards)
+        # Multiply the signal that makes actions taken more probable by the discounted
+        # return of that action.  This will pull the weights in the direction that
+        # makes *better* actions more probable.
+        self.policy_gradient = np.zeros(action_gradient.shape)
+        for t in range(0, len(returns)):
+            self.policy_gradient[t] = action_gradient[t] * returns[t]
 
-        if len(states) > 0:
-            # print(len(states),"samples")
-            fwd_relu1 = np.concatenate(relu1s)
-            fwd_affine1 = np.concatenate(affine1s)
-            fwd_x = np.concatenate(states)
+        # negate because we want gradient ascent, not descent
+        self.policy.backward(-self.policy_gradient)
 
-            # load temp grads
-            grad_key = f"{model_id}:agrad"
-            _action_grad = self._grad_db.get(grad_key)
-            if _action_grad is None:
-                action_grad = self.saved_action_gradients
-            else:
-                action_grad = pickle.loads(_action_grad)
+        # run an optimization step on all of the model parameters
+        for p in self.policy.params:
+            next_w, self.policy.adam_configs[p] = adam(
+                self.policy.params[p],
+                self.policy.grads[p],
+                config=self.policy.adam_configs[p],
+            )
+            self.policy.params[p] = next_w
+        self.policy._zero_grads()  # required every call to adam
 
-            self.saved_action_gradients = action_grad
-            action_gradient = np.array(self.saved_action_gradients)
-            returns = self.calculate_discounted_returns(rewards)
-            # Multiply the signal that makes actions taken more probable by the discounted
-            # return of that action.  This will pull the weights in the direction that
-            # makes *better* actions more probable.
-            self.policy_gradient = np.zeros(action_gradient.shape)
-            for t in range(0, len(returns)):
-                self.policy_gradient[t] = action_gradient[t] * returns[t]
-
-            # negate because we want gradient ascent, not descent
-
-            self.policy.backward(-self.policy_gradient, fwd_relu1, fwd_affine1, fwd_x)
-            param_key = f"{model_id}:param"
-            # run an optimization step on all of the model parameters
-            _params = self._model_db.get(param_key)
-            if _params is None:
-                params = self.policy.params
-            else:
-                params = pickle.loads(_params)
-
-            self.policy.params = params
-            for p in self.policy.params:
-                next_w, self.policy.adam_configs[p] = adam(
-                    self.policy.params[p],
-                    self.policy.grads[p],
-                    config=self.policy.adam_configs[p],
-                )
-                self.policy.params[p] = next_w
-            self.policy._zero_grads()  # required every call to adam
-
-            self._model_db.set(param_key, pickle.dumps(self.policy.params))
-
-            # reset stuff
-            del self.rewards[:]
-            del self.saved_action_gradients[:]
-            self._grad_db.set(grad_key, pickle.dumps(self.saved_action_gradients))
-
-    def update_buffer(self, reward, learn=False):
-        # run the environment
-        if not learn:
-            tmp_buffer = self.rollout(reward)
-            self.policy.replay_buffer.push(tmp_buffer)
-            return True
-        states = []
-        affine1s = []
-        relu1s = []
-        rewards = []
-        if self.policy.replay_buffer.memory.qsize() > self.policy.batch_size:
-            size = self.policy.replay_buffer.memory.qsize()
-            all = self.policy.replay_buffer.memory.queue
-            for j in all:
-                # print(len(j))
-                # if len(j)!=4:
-                #    continue
-                x, affine1, relu1, r = j
-                states.append(x)
-                affine1s.append(affine1)
-                relu1s.append(relu1)
-                rewards.append(r)
-
-        return states, affine1s, relu1s, rewards
-
-    def rollout(self, reward):
-
-        if self.policy.temp_replay_buffer.memory.qsize() > 0:
-            tmp_buffer = self.policy.temp_replay_buffer.memory.queue[0]
-            tmp_buffer.append(reward)
-
-        return tmp_buffer
+        # reset stuff
+        del self.rewards[:]
+        del self.saved_action_gradients[:]

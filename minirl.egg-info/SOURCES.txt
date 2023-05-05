@@ -5,6 +5,14 @@ minirl.egg-info/PKG-INFO
 minirl.egg-info/SOURCES.txt
 minirl.egg-info/dependency_links.txt
 minirl.egg-info/top_level.txt
+minirl/agents/__init__.py
+minirl/agents/base.py
+minirl/agents/pg.py
+minirl/algos/__init__.py
+minirl/algos/a2c.py
+minirl/algos/a2c_bak.py
+minirl/algos/a3c.py
+minirl/algos/pg.py
 minirl/common/__init__.py
 minirl/common/base.py
 minirl/common/net.py
@@ -28,6 +36,12 @@ minirl/core/reinforce.py
 minirl/core/rf.py
 minirl/core/rl_utils.py
 minirl/core/smab.py
+minirl/models/__init__.py
+minirl/models/activation.py
+minirl/models/init.py
+minirl/models/loss.py
+minirl/models/nn.py
+minirl/models/optim.py
 minirl/neural_nets/__init__.py
 minirl/neural_nets/array.py
 minirl/neural_nets/context.py
@@ -67,4 +81,6 @@ minirl/preprocessing/scaler.py
 minirl/preprocessing/stats.py
 minirl/preprocessing/utils.py
 minirl/utils/__init__.py
+minirl/utils/array.py
+minirl/utils/collections.py
 minirl/utils/pretty.py

@@ -55,6 +55,7 @@ class ActorNet2(object):
         self.optm_cfg["b2"] = None
         self.optm_cfg["W3"] = None
         self.optm_cfg["b3"] = None
+        self.action_nums = output_size
 
     def evaluate_gradient(self, s, a, olp, adv, b, clip_param, max_norm):
 
@@ -237,7 +238,16 @@ class ActorNet2(object):
                 - math.log(math.sqrt(2 * math.pi))
             )
 
-        return a, alp
+        probs = self._softmax(a)[0]
+        action = np.random.choice(self.action_nums, p=probs)
+        return action, alp
+
+    def _softmax(self, x):
+        shifted_logits = x - np.max(x, axis=1, keepdims=True)
+        Z = np.sum(np.exp(shifted_logits), axis=1, keepdims=True)
+        log_probs = shifted_logits - np.log(Z)
+        probs = np.exp(log_probs)
+        return probs
 
     def _adam(self, x, dx, config=None):
         if config is None:
@@ -407,10 +417,10 @@ class Agent:
     ppo_epoch = 10
     buffer_capacity, batch_size = 1000, 32
 
-    def __init__(self):
+    def __init__(self, obs_n, act_n):
         self.training_step = 0
-        self.manet = ActorNet2(3, 100, 2)
-        self.mcnet = CriticNet2(3, 100, 1)
+        self.manet = ActorNet2(obs_n, 100, act_n)
+        self.mcnet = CriticNet2(obs_n, 100, 1)
         self.buffer = []
         self.counter = 0
 
@@ -485,10 +495,13 @@ class Agent:
 
 
 def main():
-    env = gym.make("Pendulum-v1")
+    # env = gym.make("Pendulum-v1")
+    env = gym.make("CartPole-v1")
+    ob_n = env.observation_space.shape[0]
+    ac_n = env.action_space.n
     # env.seed(args.seed)
 
-    agent = Agent()
+    agent = Agent(ob_n, ac_n)
 
     training_records = []
     running_reward = -1000
@@ -499,7 +512,8 @@ def main():
 
         for t in range(1000):
             action, action_log_prob = agent.manet.predict(state, 2.0)
-            state_, reward, done, _, _ = env.step([action[0, 0].item()])
+            # state_, reward, done, _, _ = env.step([action[0, 0].item()])
+            state_, reward, done, _, _ = env.step(action)
             if args.render:
                 env.render()
             if agent.store(

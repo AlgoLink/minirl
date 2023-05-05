@@ -16,7 +16,6 @@ computing contained in the REINFORCE class.  (NOTE: this only supports discrete 
 """
 
 import numpy as np
-import scipy.stats
 from itertools import count
 from ..common.optim import adam
 from ..common.replay_buffer import ReplayMemory

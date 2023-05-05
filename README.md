@@ -4,6 +4,7 @@
 </p>
 
 ---
+[![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Fira+Code&pause=1000&width=435&lines=%E5%9F%BA%E4%BA%8Enumpy+%E7%9A%84%E6%B7%B1%E5%BA%A6%E5%BC%BA%E5%8C%96%E5%AD%A6%E4%B9%A0-minirl)](https://git.io/typing-svg)
 
 这个 repo 包含一组从头开始使用 numpy 实现的用于强化学习的应用程序和算法。包括的算法q-learning、基于深度神经网络的REINFORCE、Actor-Critic和ppo等。
 

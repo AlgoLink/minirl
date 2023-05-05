@@ -263,7 +263,7 @@ class Primitive(object):
                 for res in result:
                     res.mark_for_bp(current_tape)
             else:
-                #print(result)
+                # print(result)
                 result.mark_for_bp(current_tape)  # pylint: disable= no-member
 
             # Record partial derivative paths, only for `array.Value` type values.
