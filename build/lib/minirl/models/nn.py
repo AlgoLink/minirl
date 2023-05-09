@@ -148,7 +148,7 @@ class NeuralNetwork:
                 model_key = f"{name}:wgt"
                 model = self._model_db.get(model_key)
                 weights, biases = pickle.loads(model)
-                return weights, biases
+            return weights, biases
         except:
             print("Could not load weights: File Not Found, use default")
             return self.weights, self.biases

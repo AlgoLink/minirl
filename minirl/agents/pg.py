@@ -19,6 +19,8 @@ computing contained in the REINFORCE class.  (NOTE: this only supports discrete 
 """
 # TODO: add weight saving and loading?
 import numpy as np
+import pickle
+import copy  # for deepcopy of model parameters
 
 from ..common.optim import adam
 
@@ -33,7 +35,17 @@ class PolicyNetwork(object):
 
     """
 
-    def __init__(self, ob_n, ac_n, hidden_dim=64, lr=1e-3, dtype=np.float32):
+    def __init__(
+        self,
+        ob_n,
+        ac_n,
+        hidden_dim=64,
+        lr=1e-3,
+        model_db=None,
+        his_db=None,
+        score_db=None,
+        dtype=np.float32,
+    ):
         """
         Initialize a neural network to choose actions
 
@@ -50,6 +62,10 @@ class PolicyNetwork(object):
         self.hidden_dim = H = hidden_dim
         self.dtype = dtype
         self.lr = lr
+
+        self._model_db = model_db
+        self._his_db = his_db
+        self._score_db = score_db
 
         # Initialize all weights (model params) with "Xavier Initialization"
         # weight matrix init = uniform(-1, 1) / sqrt(layer_input)
@@ -75,19 +91,116 @@ class PolicyNetwork(object):
             self.adam_configs[p] = d
 
     ### HELPER FUNCTIONS
-    def _zero_grads(self):
+    def _zero_grads2(self):
         """Reset gradients to 0. This should be called during optimization steps"""
         for g in self.grads:
             self.grads[g] = np.zeros_like(self.grads[g])
 
-    def _add_to_cache(self, name, val):
+    def grads_key(self, model_id):
+        return f"{model_id}:grads"
+
+    def save_grads(self, grads, model_id):
+        self._score_db.set(self.grads_key(model_id), pickle.dumps(grads))
+
+    def get_grads(self, model_id):
+        _grads = self._score_db.get(self.grads_key(model_id))
+        if _grads is None:
+            grads = self.grads
+        else:
+            grads = pickle.loads(_grads)
+        return grads
+
+    def _zero_grads(self, model_id=None):
+        """Reset gradients to 0. This should be called during optimization steps"""
+        if self._score_db is None:
+            self._zero_grads2()
+        else:
+            grads = self.get_grads(model_id)
+            for g in grads:
+                grads[g] = np.zeros_like(grads[g])
+
+            self.save_grads(grads, model_id)
+            self.grads = grads
+
+    def _add_to_cache2(self, name, val):
         """Helper function to add a parameter to the cache without having to do checks"""
         if name in self.cache:
             self.cache[name].append(val)
         else:
             self.cache[name] = [val]
 
-    def _update_grad(self, name, val):
+    def cache_key(self, model_id):
+        return f"{model_id}:cache"
+
+    def cache_local_key(self, name, model_id):
+        global_key = self.cache_key(model_id)
+        return f"{global_key}:{name}"
+
+    def get_cache(self, model_id):
+        _cache = self._score_db.get(self.cache_key(model_id))
+        if _cache is None:
+            cache = {}
+        else:
+            cache = pickle.loads(_cache)
+
+        return cache
+
+    def save_cache(self, cache, model_id):
+        self._score_db.set(self.cache_key(model_id), pickle.dumps(cache))
+
+    def _add_to_cache(self, name, val, model_id):
+        """Helper function to add a parameter to the cache without having to do checks"""
+        if self._score_db is None:
+            self._add_to_cache2(name, val)
+            return
+        cache = self.get_cache(model_id)
+        if name in cache:
+            cache[name].append(val)
+        else:
+            cache[name] = [val]
+
+        self.save_cache(cache, model_id)
+
+    def _add_to_cache_once(self, cache, name, val):
+        """Helper function to add a parameter to the cache without having to do checks"""
+
+        if name in cache:
+            cache[name].append(val)
+        else:
+            cache[name] = [val]
+
+        return cache
+
+    def _add_to_cache_using_rpush(self, name, val, model_id):
+        """key in ['fwd_relu1', 'fwd_affine1', 'fwd_x']"""
+        global_key = self.cache_key(model_id)
+        local_key = f"{global_key}:{name}"
+        if name == "rewards":
+            self._score_db.rpush(local_key, str(val))
+        else:
+            self._score_db.rpush(local_key, pickle.dumps(val))
+
+    def _get_cache_using_lrange(self, name, model_id, get_n="-1"):
+        global_key = self.cache_key(model_id)
+        local_key = f"{global_key}:{name}"
+        return self._score_db.lrange(local_key, "0", get_n)
+
+    def _update_grad(self, name, val, model_id=None):
+        """Helper fucntion to set gradient without having to do checks"""
+        if self._score_db is None:
+            self._update_grad2(name, val)
+            return
+
+        grads = self.get_grads(model_id)
+        if name in grads:
+            grads[name] += val
+        else:
+            grads[name] = val
+
+        self.save_grads(grads, model_id)
+        # self.grads=
+
+    def _update_grad2(self, name, val):
         """Helper fucntion to set gradient without having to do checks"""
         if name in self.grads:
             self.grads[name] += val
@@ -123,12 +236,12 @@ class PolicyNetwork(object):
         probs = self._softmax(logits)
 
         # cache values for backward (based on what is needed for analytic gradient calc)
-        self._add_to_cache("fwd_x", x)
-        self._add_to_cache("fwd_affine1", affine1)
-        self._add_to_cache("fwd_relu1", relu1)
-        return probs
+        # self._add_to_cache("fwd_x", x)
+        # self._add_to_cache("fwd_affine1", affine1)
+        # self._add_to_cache("fwd_relu1", relu1)
+        return probs, affine1, relu1
 
-    def backward(self, dout):
+    def backward(self, dout, model_id=None):
         """
         Backwards pass of the network.
 
@@ -146,9 +259,17 @@ class PolicyNetwork(object):
         W1, b1, W2, b2 = p["W1"], p["b1"], p["W2"], p["b2"]
 
         # get values from network forward passes (for analytic gradient computations)
-        fwd_relu1 = np.concatenate(self.cache["fwd_relu1"])
-        fwd_affine1 = np.concatenate(self.cache["fwd_affine1"])
-        fwd_x = np.concatenate(self.cache["fwd_x"])
+        cache = self.get_cache(model_id)
+        _fwd_relu1 = cache["fwd_relu1"]
+        _fwd_affine1 = cache["fwd_affine1"]
+        _fwd_x = cache["fwd_x"]
+        fwd_relu1 = np.concatenate(_fwd_relu1)
+        fwd_affine1 = np.concatenate(_fwd_affine1)
+        fwd_x = np.concatenate(_fwd_x)
+
+        # fwd_relu1 = np.concatenate(self.cache["fwd_relu1"])
+        # wd_affine1 = np.concatenate(self.cache["fwd_affine1"])
+        # fwd_x = np.concatenate(self.cache["fwd_x"])
 
         # Analytic gradient of last layer for backprop
         # affine2 = W2*relu1 + b2
@@ -168,13 +289,66 @@ class PolicyNetwork(object):
         db1 = np.sum(daffine1)
 
         # update gradients
-        self._update_grad("W1", dW1)
-        self._update_grad("b1", db1)
-        self._update_grad("W2", dW2)
-        self._update_grad("b2", db2)
+        # self._update_grad("W1", dW1)
+        # self._update_grad("b1", db1)
+        # self._update_grad("W2", dW2)
+        # self._update_grad("b2", db2)
+        self._update_grad2("W1", dW1)
+        self._update_grad2("b1", db1)
+        self._update_grad2("W2", dW2)
+        self._update_grad2("b2", db2)
 
         # reset cache for next backward pass
         self.cache = {}
+        # self.save_cache({}, model_id)
+
+    def get_weights(self, model_id):
+        # return self.weights, self.biases
+        params, adam_configs = self.load_weights(model_id)
+        return params, adam_configs
+
+        # return (copy.deepcopy(self.weights), copy.deepcopy(self.biases))
+
+    def set_weights(self, params, adam_configs):
+        # use deepcopy to avoid target_model and normal model from using
+        # the same weights. (standard copy means object references instead of
+        # values are copied)
+        self.params = copy.deepcopy(params)
+        self.adam_configs = copy.deepcopy(adam_configs)
+
+    def model_params_key(self, model_id):
+        return f"{model_id}:params"
+
+    def save_weights(self, model_id):
+        if self._model_db is None:
+            pickle.dump(
+                [self.params, self.adam_configs],
+                open("{}.pickle".format(model_id), "wb"),
+            )
+        else:
+            model_key = self.model_params_key(model_id)
+            self._model_db.set(
+                model_key, pickle.dumps([self.params, self.adam_configs])
+            )
+
+    def load_weights(self, model_id=None):
+        try:
+            if self._model_db is None:
+                params, adam_configs = pickle.load(
+                    open("{}.pickle".format(model_id), "rb")
+                )
+            else:
+                model_key = self.model_params_key(model_id)
+                model = self._model_db.get(model_key)
+                if model is not None:
+                    params, adam_configs = pickle.loads(model)
+                    return params, adam_configs
+                else:
+                    return self.params, self.adam_configs
+
+        except:
+            print("Could not load weights: File Not Found, use default")
+            return self.params, self.adam_configs
 
 
 class PGAgent(object):
@@ -182,23 +356,62 @@ class PGAgent(object):
     Object to handle running the algorithm. Uses a PolicyNetwork
     """
 
-    def __init__(self, obs_n, act_n, hidden_dim=64, lr=1e-3, seed=42):
-        self.policy = PolicyNetwork(obs_n, act_n, hidden_dim, lr)
+    def __init__(
+        self,
+        obs_n,
+        act_n,
+        hidden_dim=64,
+        gamma=0.99,
+        lr=1e-3,
+        seed=42,
+        model_db=None,
+        score_db=None,
+        his_db=None,
+        model_id=None,
+    ):
+        self.policy = self.create_model(
+            obs_n, act_n, hidden_dim, lr, model_db, score_db, his_db
+        )
+        self.target_model = self.create_model(
+            obs_n, act_n, hidden_dim, lr, model_db, score_db, his_db
+        )
+        self.target_model.set_weights(*self.policy.get_weights(model_id))
 
         # RL specific bookkeeping
         self.saved_action_gradients = []
         self.rewards = []
+        self.gamma = gamma
         np.random.seed(seed)
 
-    def act(self, obs):
+    def create_model(
+        self, obs_dim, num_actions, hidden_layers, lr, model_db, score_db, his_db
+    ):
+        model = PolicyNetwork(
+            ob_n=obs_dim,
+            ac_n=num_actions,
+            hidden_dim=hidden_layers,
+            lr=lr,
+            model_db=model_db,
+            his_db=his_db,
+            score_db=score_db,
+        )
+
+        return model
+
+    def act(self, obs, model_id, target=True, save_aprobs=True):
         """
         Pass observations through network and sample an action to take. Keep track
         of dh to use to update weights
         """
+        self.target_model.set_weights(*self.policy.get_weights(model_id))
+        if target:
+            model = self.target_model
+        else:
+            model = self.policy
         obs = np.reshape(obs, [1, -1])
-        netout = self.policy.forward(obs)[0]
+        netout, affine1, relu1 = model.forward(obs)  # [0]
 
-        probs = netout
+        probs = netout[0]
         # randomly sample action based on probabilities
         action = np.random.choice(self.policy.ac_n, p=probs)
         # derivative that pulls in direction to make actions taken more probable
@@ -206,7 +419,15 @@ class PGAgent(object):
         # (see README.md for derivation)
         dh = -1 * probs
         dh[action] += 1
-        self.saved_action_gradients.append(dh)
+        # self.saved_action_gradients.append(dh)
+        if save_aprobs:
+            model._add_to_cache_using_rpush("aprobs", dh, model_id)
+
+            cache = model.get_cache(model_id)
+            cache = model._add_to_cache_once(cache, "fwd_x", obs)
+            cache = model._add_to_cache_once(cache, "fwd_affine1", affine1)
+            cache = model._add_to_cache_once(cache, "fwd_relu1", relu1)
+            model.save_cache(cache, model_id)
 
         return action
 
@@ -221,20 +442,43 @@ class PGAgent(object):
 
         next_return = 0  # 0 because we start at the last timestep
         for t in reversed(range(0, len(rewards))):
-            next_return = rewards[t] + args.gamma * next_return
+            next_return = rewards[t] + self.gamma * next_return
             returns[t] = next_return
-        # normalize for better statistical properties
+        # normalize for better statistical properties /baseline
         returns = (returns - returns.mean()) / (
             returns.std() + np.finfo(np.float32).eps
         )
         return returns
 
-    def learn(self):
+    def empty_cache(self,model_id):
+        reward_local_key = self.target_model.cache_local_key("rewards", model_id)
+        aprobs_local_key = self.target_model.cache_local_key("aprobs", model_id)
+        self.target_model._score_db.delete(reward_local_key)
+        self.target_model._score_db.delete(aprobs_local_key)
+        cache_key=self.target_model.cache_key(model_id)
+        self.target_model._score_db.delete(cache_key)
+
+    def learn(self, model_id, target=True):
         """
         At the end of the episode, calculate the discounted return for each time step and update the model parameters
         """
-        action_gradient = np.array(self.saved_action_gradients)
-        returns = self.calculate_discounted_returns(self.rewards)
+        self.target_model.set_weights(*self.policy.get_weights(model_id))
+        if target:
+            model = self.target_model
+        else:
+            model = self.policy
+
+        # upload grads
+        # model.grads = model.get_grads(model_id)
+        # action_gradient = np.array(self.saved_action_gradients)
+        _aprobs = model._get_cache_using_lrange("aprobs", model_id)
+        aprobs = [pickle.loads(aprob) for aprob in _aprobs]
+        action_gradient = np.array(aprobs)
+
+        _rewards = model._get_cache_using_lrange("rewards", model_id)
+        rewards = [float(r) for r in _rewards]
+        # returns = self.calculate_discounted_returns(self.rewards)
+        returns = self.calculate_discounted_returns(rewards)
         # Multiply the signal that makes actions taken more probable by the discounted
         # return of that action.  This will pull the weights in the direction that
         # makes *better* actions more probable.
@@ -243,18 +487,23 @@ class PGAgent(object):
             self.policy_gradient[t] = action_gradient[t] * returns[t]
 
         # negate because we want gradient ascent, not descent
-        self.policy.backward(-self.policy_gradient)
+        model.backward(-self.policy_gradient, model_id)
+
+        del self.policy_gradient
 
         # run an optimization step on all of the model parameters
-        for p in self.policy.params:
-            next_w, self.policy.adam_configs[p] = adam(
-                self.policy.params[p],
-                self.policy.grads[p],
-                config=self.policy.adam_configs[p],
+        for p in model.params:
+            next_w, model.adam_configs[p] = adam(
+                model.params[p],
+                model.grads[p],
+                config=model.adam_configs[p],
             )
-            self.policy.params[p] = next_w
-        self.policy._zero_grads()  # required every call to adam
+            model.params[p] = next_w
+        model._zero_grads2()  # required every call to adam
 
         # reset stuff
         del self.rewards[:]
         del self.saved_action_gradients[:]
+        self.empty_cache(model_id)
+
+        model.save_weights(model_id)

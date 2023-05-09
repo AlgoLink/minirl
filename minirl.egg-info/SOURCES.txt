@@ -13,6 +13,7 @@ minirl/algos/a2c.py
 minirl/algos/a2c_bak.py
 minirl/algos/a3c.py
 minirl/algos/pg.py
+minirl/brain/__init__.py
 minirl/common/__init__.py
 minirl/common/base.py
 minirl/common/net.py
@@ -82,5 +83,7 @@ minirl/preprocessing/stats.py
 minirl/preprocessing/utils.py
 minirl/utils/__init__.py
 minirl/utils/array.py
+minirl/utils/buffer.py
 minirl/utils/collections.py
+minirl/utils/misc.py
 minirl/utils/pretty.py
