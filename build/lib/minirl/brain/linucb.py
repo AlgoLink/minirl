@@ -7,12 +7,12 @@ class LinUCB:
     def __init__(self, feature_dim, alpha=0.1, model_db=None):
         self._model_db = model_db
         self.alpha = alpha
-        H=1
+        H = 1
         # H:hidden_dim
         theta_init = (-1 + 2 * np.random.rand(feature_dim, H)) / np.sqrt(feature_dim)
         self.A = np.eye(feature_dim)
         self.b = np.zeros((feature_dim, 1))
-        #self.theta = np.zeros((feature_dim, 1))
+        # self.theta = np.zeros((feature_dim, 1))
         self.theta = theta_init
 
     def learn(self, x, r, model_id):

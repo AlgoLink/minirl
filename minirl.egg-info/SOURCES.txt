@@ -15,6 +15,7 @@ minirl/algos/a3c.py
 minirl/algos/pg.py
 minirl/brain/__init__.py
 minirl/brain/linucb.py
+minirl/brain/linucb2.py
 minirl/common/__init__.py
 minirl/common/base.py
 minirl/common/net.py

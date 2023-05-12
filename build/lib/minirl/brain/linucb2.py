@@ -128,7 +128,7 @@ class LinUCB(BanditPolicyBase):
         self.obs_dim = obs_dim
         self.alpha = alpha
         self.gamma = gamma
-        self._model_db = model_db
+        self._model_id = model_db
         self.A, self.b = [], []
         self.is_initialized = False
 
@@ -165,7 +165,7 @@ class LinUCB(BanditPolicyBase):
         for _ in range(self.act_dim):
             self.A.append(np.eye(self.obs_dim))
             self.b.append(np.zeros(self.obs_dim))
-        self.theta = theta_init
+
         self.is_initialized = True
 
     def act(self, arms, model_id):
