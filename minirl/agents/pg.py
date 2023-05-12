@@ -450,12 +450,12 @@ class PGAgent(object):
         )
         return returns
 
-    def empty_cache(self,model_id):
+    def empty_cache(self, model_id):
         reward_local_key = self.target_model.cache_local_key("rewards", model_id)
         aprobs_local_key = self.target_model.cache_local_key("aprobs", model_id)
         self.target_model._score_db.delete(reward_local_key)
         self.target_model._score_db.delete(aprobs_local_key)
-        cache_key=self.target_model.cache_key(model_id)
+        cache_key = self.target_model.cache_key(model_id)
         self.target_model._score_db.delete(cache_key)
 
     def learn(self, model_id, target=True):

@@ -24,15 +24,16 @@ def main():
     for i_episode in count(1):
         ep_reward = 0
         obs, _ = env.reset()
-        for t in range(100):  # Don't infinite loop while learning
+        for t in range(1000):  # Don't infinite loop while learning
 
-            action = agent.act(obs, model_id,save_aprobs=True)
+            action = agent.act(obs, model_id, save_aprobs=True)
             next_obs, reward, done, _, _ = env.step(action)
             ep_reward += reward
+            if reward < 0 or reward > 1:
+                print(reward, "rewaed")
             # agent.rewards.append(reward)
             agent.policy._add_to_cache_using_rpush("rewards", str(reward), model_id)
-            #reward_local_key = agent.policy.cache_local_key("rewards", model_id)
-            
+            # reward_local_key = agent.policy.cache_local_key("rewards", model_id)
 
             if render_interval != -1 and i_episode % render_interval == 0:
                 env.render()
@@ -41,18 +42,18 @@ def main():
                 break
 
             obs = next_obs
-        #agent.policy._score_db.delete(reward_local_key)
+        # agent.policy._score_db.delete(reward_local_key)
         try:
 
             agent.learn(model_id)
-            #print(traceback.format_exc())
-            #x=1
+            # print(traceback.format_exc())
+            # x=1
         except:
             reward_local_key = agent.policy.cache_local_key("rewards", model_id)
             aprobs_local_key = agent.policy.cache_local_key("aprobs", model_id)
             agent.policy._score_db.delete(reward_local_key)
             agent.policy._score_db.delete(aprobs_local_key)
-            cache_key=agent.policy.cache_key(model_id)
+            cache_key = agent.policy.cache_key(model_id)
             agent.policy._score_db.delete(cache_key)
 
         if i_episode % log_interval == 0:
