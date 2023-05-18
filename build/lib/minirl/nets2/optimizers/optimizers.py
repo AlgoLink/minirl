@@ -253,7 +253,7 @@ class AdaGrad(OptimizerBase):
         if norm(param_grad) > t:
             param_grad = param_grad * t / norm(param_grad)
 
-        C[param_name] += param_grad**2
+        C[param_name] += param_grad ** 2
         update = lr * param_grad / (np.sqrt(C[param_name]) + eps)
         self.cache = C
         return param - update
@@ -355,7 +355,7 @@ class RMSProp(OptimizerBase):
         if norm(param_grad) > t:
             param_grad = param_grad * t / norm(param_grad)
 
-        C[param_name] = decay * C[param_name] + (1 - decay) * param_grad**2
+        C[param_name] = decay * C[param_name] + (1 - decay) * param_grad ** 2
         update = lr * param_grad / (np.sqrt(C[param_name]) + eps)
         self.cache = C
         return param - update
@@ -471,12 +471,12 @@ class Adam(OptimizerBase):
 
         # update cache
         C[param_name]["t"] = t
-        C[param_name]["var"] = d2 * var + (1 - d2) * param_grad**2
+        C[param_name]["var"] = d2 * var + (1 - d2) * param_grad ** 2
         C[param_name]["mean"] = d1 * mean + (1 - d1) * param_grad
         self.cache = C
 
         # calc unbiased moment estimates and Adam update
-        v_hat = C[param_name]["var"] / (1 - d2**t)
-        m_hat = C[param_name]["mean"] / (1 - d1**t)
+        v_hat = C[param_name]["var"] / (1 - d2 ** t)
+        m_hat = C[param_name]["mean"] / (1 - d1 ** t)
         update = lr * m_hat / (np.sqrt(v_hat) + eps)
         return param - update

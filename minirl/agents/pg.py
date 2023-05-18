@@ -398,7 +398,7 @@ class PGAgent(object):
 
         return model
 
-    def act(self, obs, model_id, target=True, save_aprobs=True):
+    def act(self, obs, model_id, target=True, save_aprobs=True, return_details=False):
         """
         Pass observations through network and sample an action to take. Keep track
         of dh to use to update weights
@@ -429,7 +429,18 @@ class PGAgent(object):
             cache = model._add_to_cache_once(cache, "fwd_relu1", relu1)
             model.save_cache(cache, model_id)
 
+        if return_details:
+            return action, dh, obs, affine1, relu1, model
+
         return action
+
+    def save_act_details(self, dh, obs, affine1, relu1, model, model_id):
+        model._add_to_cache_using_rpush("aprobs", dh, model_id)
+        cache = model.get_cache(model_id)
+        cache = model._add_to_cache_once(cache, "fwd_x", obs)
+        cache = model._add_to_cache_once(cache, "fwd_affine1", affine1)
+        cache = model._add_to_cache_once(cache, "fwd_relu1", relu1)
+        model.save_cache(cache, model_id)
 
     def calculate_discounted_returns(self, rewards):
         """
