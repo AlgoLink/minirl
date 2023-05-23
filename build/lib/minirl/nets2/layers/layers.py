@@ -1810,7 +1810,12 @@ class LayerNorm1D(LayerBase):
 
 class Embedding(LayerBase):
     def __init__(
-        self, n_out, vocab_size, pool=None, init="glorot_uniform", optimizer=None,
+        self,
+        n_out,
+        vocab_size,
+        pool=None,
+        init="glorot_uniform",
+        optimizer=None,
     ):
         """
         An embedding layer.

@@ -138,7 +138,7 @@ class ExponentialScheduler(SchedulerBase):
         cur_stage = step / self.stage_length
         if self.staircase:
             cur_stage = np.floor(cur_stage)
-        return self.initial_lr * self.decay ** cur_stage
+        return self.initial_lr * self.decay**cur_stage
 
 
 class NoamScheduler(SchedulerBase):
@@ -315,7 +315,7 @@ class KingScheduler(SchedulerBase):
         # compute the variance of our loss predictions and use this to compute
         # the (unbiased) estimate of the slope variance
         loss_var = 1 / (N - 2) * np.sum((loss - loss_pred) ** 2)
-        s_var = (12 * loss_var) / (N ** 3 - N)
+        s_var = (12 * loss_var) / (N**3 - N)
 
         # compute the probability that a random sample from a Gaussian
         # parameterized by s_mean and s_var is less than or equal to 0

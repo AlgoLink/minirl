@@ -288,7 +288,7 @@ class VAELoss(ObjectiveBase):
 
         # KL divergence between the variational distribution q and the prior p,
         # a unit gaussian
-        kl_loss = -0.5 * np.sum(1 + t_log_var - t_mean ** 2 - np.exp(t_log_var), axis=1)
+        kl_loss = -0.5 * np.sum(1 + t_log_var - t_mean**2 - np.exp(t_log_var), axis=1)
         loss = np.mean(kl_loss + rec_loss)
         return loss
 
@@ -512,8 +512,7 @@ class WGAN_GPLoss(ObjectiveBase):
 
 
 class NCELoss(ObjectiveBase):
-    """
-    """
+    """ """
 
     def __init__(
         self,
