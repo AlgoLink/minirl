@@ -14,9 +14,14 @@ minirl/algos/a2c_bak.py
 minirl/algos/a3c.py
 minirl/algos/pg.py
 minirl/brain/__init__.py
+minirl/brain/deep_cb.py
 minirl/brain/dqn.py
+minirl/brain/es.py
+minirl/brain/es1.py
 minirl/brain/linucb.py
 minirl/brain/linucb2.py
+minirl/brain/ppo.py
+minirl/brain/ppo2.py
 minirl/common/__init__.py
 minirl/common/base.py
 minirl/common/net.py

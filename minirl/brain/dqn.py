@@ -1,225 +1,187 @@
-import pickle
 import numpy as np
 import copy  # for deepcopy of model parameters
+import pickle
+
+from .dqn_base import Policy
 
 
-def linear(x, derivation=False):
-    """
-    activation function linear
-    """
-    if derivation:
-        return 1
-    else:
-        return x
-
-
-def relu(x, derivation=False):
-    """
-    activation function relu
-    """
-    if derivation:
-        return 1.0 * (x > 0)
-    else:
-        return np.maximum(x, 0)
-
-
-class NN:  # neural_network
-    def __init__(
-        self,
-        input_shape,
-        hidden_neurons,
-        output_shape,
-        learning_rate=0.01,
-        model_db=None,
-    ):
+class FCNPolicy(Policy):
+    # For weight initialization, used He normal init.
+    # For bias initialization, used Zero init.
+    def __init__(self, input_n, output_n, hidden_n=16, hidden_layer_n=1, model_db=None):
         self._model_db = model_db
-        self.l1_weights = np.random.normal(
-            scale=0.1, size=(input_shape, hidden_neurons)
+        self.layers = list()
+        input_w = np.random.normal(scale=np.sqrt(2 / input_n), size=(input_n, hidden_n))
+        input_b = np.zeros(hidden_n)
+
+        self.layers.append((input_w, input_b))
+
+        for i in range(hidden_layer_n):
+            hidden_w = np.random.normal(
+                scale=np.sqrt(2 / hidden_n), size=(hidden_n, hidden_n)
+            )
+            hidden_b = np.zeros(hidden_n)
+
+            self.layers.append((hidden_w, hidden_b))
+
+        output_w = np.random.normal(
+            scale=np.sqrt(2 / hidden_n), size=(hidden_n, output_n)
         )
-        self.l1_biases = np.zeros(hidden_neurons)
+        output_b = np.zeros(output_n)
 
-        self.l2_weights = np.random.normal(
-            scale=0.1, size=(hidden_neurons, output_shape)
-        )
-        self.l2_biases = np.zeros(output_shape)
+        self.layers.append((output_w, output_b))
 
-        self.learning_rate = learning_rate
-        self.q_val={}
+    def train(self, x, y, learning_rate=0.00003):
+        predict, update_helper = self.predict(x, update_mode=True)
+        update_layers = list()
+        d = predict - y
+        cost = np.mean(np.square(d))
+        d = d * 2
+        reversed_layers = list(reversed(self.layers))
 
-    def fit(self, x, y, epochs=1):
-        """
-        method implements backpropagation
-        """
-        for _ in range(epochs):
-            # Forward propagation
-            # First layer
-            u1 = np.dot(x, self.l1_weights) + self.l1_biases
-            l1o = relu(u1)
+        for i, info in enumerate(update_helper):
+            # C is cost, x is node
+            prev_layer, mid_layer, layer, activate_d_func = info
+            # dC/df'(wx+b)
+            dl = d
+            if activate_d_func is None:
+                dl_a = dl
+            else:
+                # Calculate f'(wx + b) * dC/df'(wx+b)
+                dl_a = activate_d_func(mid_layer) * dl
 
-            # Second layer
-            u2 = np.dot(l1o, self.l2_weights) + self.l2_biases
-            l2o = linear(u2)
+            # dC/db = 1 * f'(wx + b) * dC/df'(wx+b)
+            db = np.mean(dl_a, axis=0)
+            # dC/dw = x * f'(wx + b) * dC/df'(wx+b)
+            # y.shape[0] for mean of total gradient
+            dw = prev_layer.T @ dl_a / y.shape[0]
 
-            # Backward Propagation
-            # Second layer
-            d_l2o = l2o - y
-            d_u2 = linear(u2, derivation=True)
+            w, b = reversed_layers[i]
 
-            g_l2 = np.dot(l1o.T, d_u2 * d_l2o)
-            d_l2b = d_l2o * d_u2
-            # First layer
-            d_l1o = np.dot(d_l2o, self.l2_weights.T)
-            d_u1 = relu(u1, derivation=True)
+            # For backpropagation, we need tensor shape of (batchsize, output) which has each node's gradient for each batch.
+            # dC/dx = df(wx+b)/dx * dC/df(wx+b) = w * f'(wx + b) * dC/df'(wx+b) = w * dl_a
+            d = (w @ dl_a.T).T
+            update_layers.append((dw, db))
 
-            g_l1 = np.dot(x.T, d_u1 * d_l1o)
-            d_l1b = d_l1o * d_u1
+        update_layers.reverse()
 
-            # Update weights and biases
-            self.l1_weights -= self.learning_rate * g_l1
-            self.l1_biases -= self.learning_rate * d_l1b.sum(axis=0)
+        for i, l in enumerate(zip(update_layers, self.layers)):
+            update_layer, layer = l
+            dw, db = update_layer
+            w, b = layer
+            # use for clipping gradient
+            # dw = np.clip(dw, -0.5, 0.5)
+            # db = np.clip(db, -0.5, 0.5)
+            w -= learning_rate * dw
+            b -= learning_rate * db
+            self.layers[i] = (w, b)
 
-            self.l2_weights -= self.learning_rate * g_l2
-            self.l2_biases -= self.learning_rate * d_l2b.sum(axis=0)
+        return cost
 
-        # Return actual loss
-        return np.mean(np.subtract(y, l2o) ** 2)
+    def predict(self, x, update_mode=False):
+        update_helper = list()
+        prev_x = x
+        for param in self.layers[:-1]:
+            w, b = param
+            mid_x = x @ w + b
+            x = self.ReLU(mid_x)
+            if update_mode:
+                update_helper.append((prev_x, mid_x, x, self.d_ReLU))
+                prev_x = np.copy(x)
 
-    def predict(self, x):
-        """
-        method predicts q-values for state x
-        """
-        # First layer
-        u1 = np.dot(x, self.l1_weights) + self.l1_biases
-        l1o = relu(u1)
-
-        # Second layer
-        u2 = np.dot(l1o, self.l2_weights) + self.l2_biases
-        l2o = linear(u2)
-
-        return l2o
-
-    def save_model(self, name):
-        """
-        method saves model
-        """
-        with open("{}.pkl".format(name), "wb") as model:
-            pickle.dump(self, model, pickle.HIGHEST_PROTOCOL)
-
-    def load_model(self, name):
-        """
-        method loads model
-        """
-        with open("{}".format(name), "rb") as model:
-            tmp_model = pickle.load(model)
-
-        self.l1_weights = tmp_model.l1_weights
-        self.l1_biases = tmp_model.l1_biases
-
-        self.l2_weights = tmp_model.l2_weights
-        self.l2_biases = tmp_model.l2_biases
-
-        self.learning_rate = tmp_model.learning_rate
-
+        w, b = self.layers[-1]
+        if update_mode:
+            mid_x = x @ w + b
+            update_helper.append((x, mid_x, mid_x, None))
+            return x @ w + b, list(reversed(update_helper))
+        else:
+            return x @ w + b
 
     def get_model_key(self, model_id):
-        return f"{model_id}:params"
+        return f"{model_id}:dqnwgts"
 
     def get_weights(self, model_id):
         # return self.weights, self.biases
-        l1_w, l1_b, l2_w, l2_b = self.load_weights(model_id)
-        return l1_w, l1_b, l2_w, l2_b
+        layers = self.load_weights(model_id)
+        return layers
 
         # return (copy.deepcopy(self.weights), copy.deepcopy(self.biases))
 
-    def set_weights(self, l1_w, l1_b, l2_w, l2_b):
+    def set_weights(self, layers):
         # use deepcopy to avoid target_model and normal model from using
         # the same weights. (standard copy means object references instead of
         # values are copied)
-        self.l1_weights = copy.deepcopy(l1_w)
-        self.l1_biases = copy.deepcopy(l1_b)
-        self.l2_weights = copy.deepcopy(l2_w)
-        self.l2_biases = copy.deepcopy(l2_b)
+        self.layers = copy.deepcopy(layers)
 
     def save_weights(self, model_id):
         if self._model_db is None:
-            pickle.dump(
-                [
-                    self.l1_weights,
-                    self.l1_biases,
-                    self.l2_weights,
-                    self.l2_biases
-                ],
-                open("{}.pickle".format(model_id), "wb"),
-            )
+            pickle.dump(self.layers, open("{}.pickle".format(model_id), "wb"))
         else:
             model_key = self.get_model_key(model_id)
-            self._model_db.set(
-                model_key,
-                pickle.dumps(
-                    [
-                        self.l1_weights,
-                        self.l1_biases,
-                        self.l2_weights,
-                        self.l2_biases
-                    ]
-                ),
-            )
+            self._model_db.set(model_key, pickle.dumps(self.layers))
 
     def load_weights(self, model_id):
         model_key = self.get_model_key(model_id)
         _model = self._model_db.get(model_key)
         if _model is None:
-            l1_w, l1_b, l2_w, l2_b = [
-                self.l1_weights,
-                self.l1_biases,
-                self.l2_weights,
-                self.l2_biases
-            ]
+            layers = (self.layers,)
+
         else:
-            l1_w, l1_b, l2_w, l2_b = pickle.loads(_model)
-        return l1_w, l1_b, l2_w, l2_b
+            layers = pickle.loads(_model)
+        return layers
 
 
 class DQNAgent:
-    """
-    Object to handle running the algorithm. Uses a DANNetwork
-    """
-
     def __init__(
-        self, obs_dim, action_dim, hidden_layers=64, lr=0.01, gamma=0.95, model_db=None
-    ) -> None:
-        self._model_db = model_db
-        self.gamma = gamma
-        self.model = self.create_model(obs_dim, hidden_layers, action_dim, lr, model_db)
-
-    def create_model(
         self,
-        input_shape,
-        hidden_neurons,
-        output_shape,
-        learning_rate=0.01,
+        obs_dim,
+        action_dim,
+        hidden_n=16,
+        hidden_layer_n=1,
+        eps=0.2,
+        gamma=0.99,
         model_db=None,
-    ):
-        model = NN(input_shape, hidden_neurons, output_shape, learning_rate, model_db)
+    ) -> None:
+        self.eps = eps
+        self.gamma = gamma
+        self.action_cnt = action_dim
+        self.state_shape = obs_dim
 
-        return model
+        self.model = FCNPolicy(
+            input_n=obs_dim,
+            output_n=action_dim,
+            hidden_n=hidden_n,
+            hidden_layer_n=hidden_layer_n,
+            model_db=model_db,
+        )
 
     def act(self, state, model_id):
-        l1_w, l1_b, l2_w, l2_b = self.model.get_weights(model_id)
-        self.model.set_weights(l1_w, l1_b, l2_w, l2_b)
-        qvalue = self.model.predict(state)
-        action = np.argmax(qvalue)
+        # e-greedy(Q)
+        if np.random.randn() < self.eps:
+            action = np.random.randint(self.action_cnt)
+        else:
+            layers = self.model.load_weights(model_id)
+            self.model.set_weights(layers)
+
+            q_vals = self.model.predict(state)
+            action = np.argmax(q_vals)
 
         return action
 
-    def learn(self, state, action, next_state, reward, model_id):
-        l1_w, l1_b, l2_w, l2_b = self.model.get_weights(model_id)
-        self.model.set_weights(l1_w, l1_b, l2_w, l2_b)
-        q_val = self.model.predict(state)
-        ns_model_pred = self.model.predict(next_state)
-        q_val[0][action] = reward + self.gamma * np.max(ns_model_pred[0])
-        self.model.fit(state, q_val)
+    def learn(self, state, action, next_state, reward, model_id, done=False):
+        layers = self.model.load_weights(model_id)
+        self.model.set_weights(layers)
+        batch_size = 1
+        state_shape = self.state_shape
+        action_size = self.action_cnt
 
-        self.model.q_val = q_val
+        X = np.zeros((batch_size, state_shape))
+        y = np.zeros((batch_size, action_size))
 
+        X[0] = state
+
+        y_i = reward + (1 - done) * self.gamma * np.max(self.model.predict(next_state))
+        y[0] = self.model.predict(state)
+        y[0][action] = y_i
+        self.model.train(X, y)
         self.model.save_weights(model_id)
