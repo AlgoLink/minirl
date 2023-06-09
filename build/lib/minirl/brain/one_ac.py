@@ -1,7 +1,7 @@
 import numpy as np
 import pickle
 import copy  # for deepcopy of model parameters
-from one_ac_config import agent_parameters
+from .one_ac_config import agent_parameters
 import traceback
 
 

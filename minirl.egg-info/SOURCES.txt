@@ -26,6 +26,10 @@ minirl/brain/one_ac.py
 minirl/brain/one_ac_config.py
 minirl/brain/ppo.py
 minirl/brain/ppo2.py
+minirl/brain/q_learning.py
+minirl/brain/reinforce_with_baseline.py
+minirl/brain/reinfore_baseline_config.py
+minirl/brain/sarsa.py
 minirl/common/__init__.py
 minirl/common/base.py
 minirl/common/net.py

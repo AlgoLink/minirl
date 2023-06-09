@@ -66,10 +66,8 @@ class Qlearning:
         S_, R, done = next_state, reward, done
         S = state
         A = action
-        max_Q = np.max([self.Q[S_, a] for a in self.action_n])
-        self.Q[S, A] = self.Q[S, A] + self.alpha * (
-            R + self.gamma * max_Q - self.Q[S, A]
-        )
+        A_ = self.act(S_,model_id)
+        self.Q[S,A] = self.Q[S,A] + self.alpha * (R + self.gamma * self.Q[S_,A_] - self.Q[S,A])
         self.save_weights(model_id=model_id, Q=self.Q)
         self._init_model(self.config)
 
