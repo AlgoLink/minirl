@@ -1,6 +1,8 @@
 import numpy as np
 import copy  # for deepcopy of model parameters
 import pickle
+import random
+from collections import deque
 
 from .dqn_base import Policy
 
@@ -124,7 +126,7 @@ class FCNPolicy(Policy):
         model_key = self.get_model_key(model_id)
         _model = self._model_db.get(model_key)
         if _model is None:
-            layers = (self.layers,)
+            layers = self.layers
 
         else:
             layers = pickle.loads(_model)
@@ -140,12 +142,19 @@ class DQNAgent:
         hidden_layer_n=1,
         eps=0.2,
         gamma=0.99,
+        batch_size=1,
+        epoch=1,
+        replay_memory_len=100,
         model_db=None,
     ) -> None:
         self.eps = eps
         self.gamma = gamma
         self.action_cnt = action_dim
         self.state_shape = obs_dim
+        self.batch_size = batch_size
+        self.epoch = epoch
+        self.replay_memory_len = replay_memory_len
+        self.memory = deque()
 
         self.model = FCNPolicy(
             input_n=obs_dim,
@@ -169,19 +178,56 @@ class DQNAgent:
         return action
 
     def learn(self, state, action, next_state, reward, model_id, done=False):
-        layers = self.model.load_weights(model_id)
-        self.model.set_weights(layers)
-        batch_size = 1
+        batch_size = self.batch_size
+        epoch = self.epoch
         state_shape = self.state_shape
         action_size = self.action_cnt
+        if len(self.memory) < self.replay_memory_len:
+            self.add_sample(state, next_state, action, reward, done)
+            return {"msg": "not enough,model is not learned"}
+        # X = np.zeros((batch_size, state_shape))
+        # y = np.zeros((batch_size, action_size))
+        layers = self.model.load_weights(model_id)
+        self.model.set_weights(layers)
+        for i in range(1, epoch + 1):
+            states, next_states, action, reward, terminal = self._sample_memory()
 
-        X = np.zeros((batch_size, state_shape))
-        y = np.zeros((batch_size, action_size))
+            next_states = np.array(next_states)
+            target_Q_value = self.model.predict(next_states)
+            states = np.array(states)
+            Q_value = self.model.predict(states)
+            Y = list()
+            for j in range(self.batch_size):
+                if terminal[j]:
+                    Q_value[j, action[j]] = reward[j]
+                    Y.append(Q_value[j])
+                else:
+                    Q_value[j, action[j]] = reward[j] + self.gamma * np.max(
+                        target_Q_value[j]
+                    )
+                    Y.append(Q_value[j])
 
-        X[0] = state
+            Y = np.array(Y)
+            cost = self.model.train(states, Y)
 
-        y_i = reward + (1 - done) * self.gamma * np.max(self.model.predict(next_state))
-        y[0] = self.model.predict(state)
-        y[0][action] = y_i
-        self.model.train(X, y)
         self.model.save_weights(model_id)
+        print(cost, "cost", len(self.memory))
+        self.memory = []
+        print(cost, "cost", len(self.memory))
+        return cost
+
+    def add_sample(self, state, next_state, action, reward, done):
+        self.memory.append((state, next_state, action, reward, done))
+        if len(self.memory) > self.replay_memory_len:
+            self.memory.popleft()
+
+    def _sample_memory(self):
+        sample_memory = random.sample(self.memory, self.batch_size)
+
+        state = [memory[0] for memory in sample_memory]
+        next_state = [memory[1] for memory in sample_memory]
+        action = [memory[2] for memory in sample_memory]
+        reward = [memory[3] for memory in sample_memory]
+        terminal = [memory[4] for memory in sample_memory]
+
+        return state, next_state, action, reward, terminal

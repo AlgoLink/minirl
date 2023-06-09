@@ -16,10 +16,14 @@ minirl/algos/pg.py
 minirl/brain/__init__.py
 minirl/brain/deep_cb.py
 minirl/brain/dqn.py
+minirl/brain/dqn_base.py
+minirl/brain/dqn_old.py
 minirl/brain/es.py
 minirl/brain/es1.py
 minirl/brain/linucb.py
 minirl/brain/linucb2.py
+minirl/brain/one_ac.py
+minirl/brain/one_ac_config.py
 minirl/brain/ppo.py
 minirl/brain/ppo2.py
 minirl/common/__init__.py
