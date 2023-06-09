@@ -23,10 +23,12 @@ class Qlearning:
 
     def __init__(self, config):
         self.config = config
+        self._init_model(config)
 
     def _init_model(self, config):
         self.gamma = config.get("gamma", 0.99)
-        self.action_n = config.get("action_n", 0.99)
+        self.action_n = config.get("action_n", 3)
+        self.actions = config.get("action_n", ["up","lower","nochange"])
         self.eps = config.get("eps", 0.2)
         self.alpha = config.get("alpha", 0.1)
         self._model_db = config.get("model_db", None)
@@ -41,11 +43,12 @@ class Qlearning:
     def hyperparams(self):
         """A dictionary containing the policy hyperparameters"""
         return {
-            "id": "QLearning",
+            "id": "Sarsa",
             "alpha": self.alpha,
             "eps": self.eps,
             "gamma": self.gamma,
             "action_n": self.action_n,
+            "actions": self.actions,
             "model_db": self._model_db,
             "config": self.config,
         }
@@ -54,11 +57,12 @@ class Qlearning:
         if np.random.rand() > self.eps:
             model = self.load_weights(model_id=model_id)
             self.set_weights(model)
-            action = argmax_rand([self.Q[state, a] for a in self.action_n])
+            _action = argmax_rand([self.Q[state, a] for a in self.actions])
+            action=self.actions[_action]
             self._init_model(self.config)
             return action
         else:
-            return np.random.choice(self.action_n)
+            return np.random.choice(self.actions)
 
     def learn(self, state, action, reward, next_state, model_id=None, done=False):
         model = self.load_weights(model_id=model_id)
@@ -66,8 +70,10 @@ class Qlearning:
         S_, R, done = next_state, reward, done
         S = state
         A = action
-        A_ = self.act(S_,model_id)
-        self.Q[S,A] = self.Q[S,A] + self.alpha * (R + self.gamma * self.Q[S_,A_] - self.Q[S,A])
+        A_ = self.act(S_, model_id)
+        self.Q[S, A] = self.Q[S, A] + self.alpha * (
+            R + self.gamma * self.Q[S_, A_] - self.Q[S, A]
+        )
         self.save_weights(model_id=model_id, Q=self.Q)
         self._init_model(self.config)
 

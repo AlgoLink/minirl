@@ -23,10 +23,12 @@ class Qlearning:
 
     def __init__(self, config):
         self.config = config
+        self._init_model(config=config)
 
     def _init_model(self, config):
         self.gamma = config.get("gamma", 0.99)
         self.action_n = config.get("action_n", 0.99)
+        self.actions = config.get("actions",["up","nochange","lower"])
         self.eps = config.get("eps", 0.2)
         self.alpha = config.get("alpha", 0.1)
         self._model_db = config.get("model_db", None)
@@ -43,6 +45,7 @@ class Qlearning:
         return {
             "id": "QLearning",
             "alpha": self.alpha,
+            "actions":self.actions,
             "eps": self.eps,
             "gamma": self.gamma,
             "action_n": self.action_n,
@@ -54,11 +57,12 @@ class Qlearning:
         if np.random.rand() > self.eps:
             model = self.load_weights(model_id=model_id)
             self.set_weights(model)
-            action = argmax_rand([self.Q[state, a] for a in self.action_n])
+            _action = argmax_rand([self.Q[state, a] for a in self.actions])
+            action=self.actions[_action]
             self._init_model(self.config)
             return action
         else:
-            return np.random.choice(self.action_n)
+            return np.random.choice(self.actions)
 
     def learn(self, state, action, reward, next_state, model_id=None, done=False):
         model = self.load_weights(model_id=model_id)
@@ -66,7 +70,7 @@ class Qlearning:
         S_, R, done = next_state, reward, done
         S = state
         A = action
-        max_Q = np.max([self.Q[S_, a] for a in self.action_n])
+        max_Q = np.max([self.Q[S_, a] for a in self.actions])
         self.Q[S, A] = self.Q[S, A] + self.alpha * (
             R + self.gamma * max_Q - self.Q[S, A]
         )
