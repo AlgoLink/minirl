@@ -14,8 +14,11 @@ minirl/algos/a2c_bak.py
 minirl/algos/a3c.py
 minirl/algos/pg.py
 minirl/brain/__init__.py
+minirl/brain/bandit.py
+minirl/brain/cmab.py
 minirl/brain/deep_cb.py
 minirl/brain/dqn.py
+minirl/brain/dqn_adam_numpy.py
 minirl/brain/dqn_base.py
 minirl/brain/dqn_old.py
 minirl/brain/es.py
@@ -26,6 +29,7 @@ minirl/brain/one_ac.py
 minirl/brain/one_ac_config.py
 minirl/brain/ppo.py
 minirl/brain/ppo2.py
+minirl/brain/pucb.py
 minirl/brain/q_learning.py
 minirl/brain/reinforce_with_baseline.py
 minirl/brain/reinfore_baseline_config.py
@@ -115,6 +119,8 @@ minirl/preprocessing/link.py
 minirl/preprocessing/scaler.py
 minirl/preprocessing/stats.py
 minirl/preprocessing/utils.py
+minirl/stats/__init__.py
+minirl/stats/psi.py
 minirl/utils/__init__.py
 minirl/utils/array.py
 minirl/utils/buffer.py

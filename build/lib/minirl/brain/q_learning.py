@@ -28,7 +28,7 @@ class Qlearning:
     def _init_model(self, config):
         self.gamma = config.get("gamma", 0.99)
         self.action_n = config.get("action_n", 0.99)
-        self.actions = config.get("actions",["up","nochange","lower"])
+        self.actions = config.get("actions", ["up", "nochange", "lower"])
         self.eps = config.get("eps", 0.2)
         self.alpha = config.get("alpha", 0.1)
         self._model_db = config.get("model_db", None)
@@ -45,7 +45,7 @@ class Qlearning:
         return {
             "id": "QLearning",
             "alpha": self.alpha,
-            "actions":self.actions,
+            "actions": self.actions,
             "eps": self.eps,
             "gamma": self.gamma,
             "action_n": self.action_n,
@@ -58,7 +58,7 @@ class Qlearning:
             model = self.load_weights(model_id=model_id)
             self.set_weights(model)
             _action = argmax_rand([self.Q[state, a] for a in self.actions])
-            action=self.actions[_action]
+            action = self.actions[_action]
             self._init_model(self.config)
             return action
         else:
